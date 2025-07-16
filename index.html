@@ -1,127 +1,114 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SHABAN-MD VIP PAIRING</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"/>
   <style>
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-    }html, body {
-  height: 100%;
-  overflow: hidden;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-body {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #000;
-  position: relative;
-}
-
-canvas#bgEffect {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 0;
-}
-
-.container {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 2rem;
-  border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  width: 90%;
-  max-width: 420px;
-}
-
-.container h3 {
-  color: #ffffff;
-  text-shadow: 1px 1px 6px #000;
-  text-align: center;
-  margin-bottom: 1rem;
-}
-
-.container h6 {
-  color: #e0e0e0;
-  text-shadow: 1px 1px 3px #000;
-  margin-bottom: 1.2rem;
-  font-weight: normal;
-  text-align: center;
-}
-
-.input-container {
-  display: flex;
-  background: #fff;
-  border-radius: 1rem;
-  overflow: hidden;
-  margin-bottom: 1rem;
-  width: 100%;
-}
-
-.input-container input {
-  flex: 1;
-  padding: 1rem;
-  border: none;
-  outline: none;
-  font-size: 1rem;
-  color: #333;
-}
-
-.input-container button {
-  background: linear-gradient(to right, #8a2be2, #4b0082);
-  border: none;
-  color: white;
-  padding: 1rem;
-  font-size: 1rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background 0.3s ease;
-}
-
-.input-container button:hover {
-  background: linear-gradient(to right, #32CD32, #228B22);
-  color: yellow;
-}
-
-#pair, #waiting-message {
-  color: #fff;
-  text-align: center;
-  margin-top: 1rem;
-  font-weight: bold;
-  text-shadow: 1px 1px 2px #000;
-}
-
-#copy {
-  cursor: pointer;
-  font-size: 1.2rem;
-}
-
-@media (max-width: 480px) {
-  .input-container {
-    flex-direction: column;
-  }
-
-  .input-container input,
-  .input-container button {
-    width: 100%;
-    border-radius: 0;
-  }
-}
-
+    }
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #000;
+      position: relative;
+    }
+    canvas#bgEffect {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 0;
+    }
+    .container {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2rem;
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      width: 90%;
+      max-width: 420px;
+    }
+    .container h3 {
+      color: #ffffff;
+      text-shadow: 1px 1px 6px #000;
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    .container h6 {
+      color: #e0e0e0;
+      text-shadow: 1px 1px 3px #000;
+      margin-bottom: 1.2rem;
+      font-weight: normal;
+      text-align: center;
+    }
+    .input-container {
+      display: flex;
+      background: #fff;
+      border-radius: 1rem;
+      overflow: hidden;
+      margin-bottom: 1rem;
+      width: 100%;
+    }
+    .input-container input {
+      flex: 1;
+      padding: 1rem;
+      border: none;
+      outline: none;
+      font-size: 1rem;
+      color: #333;
+    }
+    .input-container button {
+      background: linear-gradient(to right, #8a2be2, #4b0082);
+      border: none;
+      color: white;
+      padding: 1rem;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    .input-container button:hover {
+      background: linear-gradient(to right, #32CD32, #228B22);
+      color: yellow;
+    }
+    #pair, #waiting-message {
+      color: #fff;
+      text-align: center;
+      margin-top: 1rem;
+      font-weight: bold;
+      text-shadow: 1px 1px 2px #000;
+    }
+    #copy {
+      cursor: pointer;
+      font-size: 1.2rem;
+    }
+    @media (max-width: 480px) {
+      .input-container {
+        flex-direction: column;
+      }
+      .input-container input,
+      .input-container button {
+        width: 100%;
+        border-radius: 0;
+      }
+    }
   </style>
 </head>
 <body>
@@ -135,14 +122,19 @@ canvas#bgEffect {
     </div>
     <div id="waiting-message" style="display:none;">Processing...</div>
     <main id="pair"></main>
-  </div>  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.0.0-alpha.1/axios.min.js"></script>  <script>
+  </div>
+
+  <!-- مكتبة axios -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.0.0-alpha.1/axios.min.js"></script>
+
+  <!-- خلفية متحركة -->
+  <script>
     const canvas = document.getElementById("bgEffect");
     const ctx = canvas.getContext("2d");
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
     let particlesArray = [];
-
     class Particle {
       constructor() {
         this.x = Math.random() * canvas.width;
@@ -154,7 +146,6 @@ canvas#bgEffect {
       update() {
         this.x += this.speedX;
         this.y += this.speedY;
-
         if (this.x > canvas.width || this.x < 0) this.speedX *= -1;
         if (this.y > canvas.height || this.y < 0) this.speedY *= -1;
       }
@@ -190,7 +181,10 @@ canvas#bgEffect {
 
     initParticles();
     animateParticles();
-  </script>  <script>
+  </script>
+
+  <!-- منطق الاتصال بالـ API -->
+  <script>
     const pairOutput = document.getElementById("pair");
     const submitBtn = document.getElementById("submit");
     const numberInput = document.getElementById("number");
@@ -220,12 +214,20 @@ canvas#bgEffect {
         pairOutput.innerHTML = '<p style="color:white">❌Invalid number format❌</p>';
         return;
       }
+
       waitingMsg.style.display = 'block';
       pairOutput.innerHTML = '';
-      const { data } = await axios(`/code?number=${rawNum}`);
-      const code = data.code || "Service Unavailable";
-      waitingMsg.style.display = 'none';
-      pairOutput.innerHTML = `<p id="copy" onclick="copyCode()" style="color:red;cursor:pointer;">CODE: <span style="color:white">${code}</span></p>`;
+
+      try {
+        const { data } = await axios(`https://igiflig.onrender.com/code?number=${rawNum}`);
+        const code = data.code || "Service Unavailable";
+        waitingMsg.style.display = 'none';
+        pairOutput.innerHTML = `<p id="copy" onclick="copyCode()" style="color:red;cursor:pointer;">CODE: <span style="color:white">${code}</span></p>`;
+      } catch (error) {
+        waitingMsg.style.display = 'none';
+        pairOutput.innerHTML = `<p style="color:white">🚫 Error: ${error?.response?.data?.error || 'Failed to fetch code.'}</p>`;
+      }
     });
-  </script></body>
+  </script>
+</body>
 </html>
