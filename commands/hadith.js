@@ -1,5 +1,5 @@
-const data = require('../data/hadith.json');
-module.exports = function () {
-  const random = Math.floor(Math.random() * data.length);
-  return `📖 *حديث شريف:*\n\n"${data[random]}"`;
+module.exports = async ({ text, reply }) => {
+  if (text.toLowerCase().includes('حديث')) {
+    reply('📖 قال رسول الله ﷺ: "من دل على خير فله مثل أجر فاعله"');
+  }
 };
