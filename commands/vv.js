@@ -1,66 +1,47 @@
-const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-
 module.exports = {
   name: "vv",
-  description: "📥 استرجاع الوسائط ذات العرض لمرة واحدة",
+  description: "استعادة صورة أو فيديو العرض لمرة واحدة",
   category: "owner",
-  alias: ["viewonce", "retrive"],
-  react: "🐳",
-  ownerOnly: true,
+  use: "<الرد على الوسائط>",
+  async execute(client, message, args) {
+    const { from, quoted, sender } = message;
 
-  execute: async (client, message, args, { isCreator }) => {
-    const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-
-    if (!isCreator) {
-      return await client.sendMessage(message.key.remoteJid, {
-        text: "*📛 هذا الأمر مخصص للمالك فقط.*"
+    // تحقق إذا تم الرد على رسالة
+    if (!quoted || !quoted.message) {
+      return await client.sendMessage(from, {
+        text: "❌ من فضلك قم بالرد على صورة أو فيديو عرض لمرة واحدة."
       }, { quoted: message });
     }
 
-    if (!quoted) {
-      return await client.sendMessage(message.key.remoteJid, {
-        text: "*🍁 من فضلك قم بالرد على رسالة تحتوي على وسائط ذات عرض لمرة واحدة.*"
-      }, { quoted: message });
-    }
-
+    // تحميل الوسائط
     try {
-      let mtype = Object.keys(quoted)[0];
-      const stream = await downloadContentFromMessage(quoted[mtype], mtype.replace('Message', ''));
-      let buffer = Buffer.from([]);
+      const buffer = await quoted.download();
+      const mtype = quoted.type;
 
-      for await (const chunk of stream) {
-        buffer = Buffer.concat([buffer, chunk]);
-      }
+      switch (mtype) {
+        case "imageMessage":
+          return await client.sendMessage(from, {
+            image: buffer,
+            caption: "✅ تمت استعادة الصورة."
+          }, { quoted: message });
 
-      let sendOptions = { quoted: message };
+        case "videoMessage":
+          return await client.sendMessage(from, {
+            video: buffer,
+            caption: "✅ تم استعادة الفيديو."
+          }, { quoted: message });
 
-      if (mtype === "imageMessage") {
-        await client.sendMessage(message.key.remoteJid, {
-          image: buffer,
-          caption: quoted[mtype]?.caption || ""
-        }, sendOptions);
-      } else if (mtype === "videoMessage") {
-        await client.sendMessage(message.key.remoteJid, {
-          video: buffer,
-          caption: quoted[mtype]?.caption || ""
-        }, sendOptions);
-      } else if (mtype === "audioMessage") {
-        await client.sendMessage(message.key.remoteJid, {
-          audio: buffer,
-          mimetype: "audio/mp4",
-          ptt: quoted[mtype]?.ptt || false
-        }, sendOptions);
-      } else {
-        await client.sendMessage(message.key.remoteJid, {
-          text: "❌ فقط الصور، الفيديو، والصوتيات مدعومة."
-        }, sendOptions);
+        default:
+          return await client.sendMessage(from, {
+            text: "❌ فقط الصور والفيديوهات مدعومة."
+          }, { quoted: message });
       }
 
     } catch (err) {
-      console.error("vv Error:", err);
-      await client.sendMessage(message.key.remoteJid, {
-        text: `❌ حدث خطأ أثناء استرجاع الوسائط:\n${err.message}`
+      console.error("خطأ في استرجاع الوسائط:", err);
+      return await client.sendMessage(from, {
+        text: "❌ فشل في استرجاع الوسائط."
       }, { quoted: message });
     }
   }
-};
+}
