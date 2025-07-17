@@ -1,48 +1,27 @@
-module.exports = async ({ text, reply, sock, msg, from }) => {
-  const azkar = [
-    '📿 *ذكر 1:* سبحان الله وبحمده، سبحان الله العظيم.',
-    '📿 *ذكر 2:* لا إله إلا الله وحده لا شريك له، له الملك وله الحمد وهو على كل شيء قدير.',
-    '📿 *ذكر 3:* أستغفر الله العظيم وأتوب إليه.',
-    '📿 *ذكر 4:* اللهم صل على محمد وعلى آل محمد كما صليت على إبراهيم وعلى آل إبراهيم.',
-    '📿 *ذكر 5:* لا حول ولا قوة إلا بالله العلي العظيم.'
-  ];
+const azkar = [
+  '🕋 ذكر 1: سبحان الله وبحمده سبحان الله العظيم',
+  '🕋 ذكر 2: لا إله إلا الله وحده لا شريك له له الملك وله الحمد وهو على كل شيء قدير',
+  '🕋 ذكر 3: أستغفر الله العظيم وأتوب إليه'
+];
 
-  // توليد الأزرار حسب الفهرس
-  const createButtons = (index) => [
-    { buttonId: `azkar_prev_${index}`, buttonText: { displayText: '⬅️ السابق' }, type: 1 },
-    { buttonId: `azkar_next_${index}`, buttonText: { displayText: '➡️ التالي' }, type: 1 },
-    { buttonId: 'azkar_home', buttonText: { displayText: '🏠 العودة للبداية' }, type: 1 },
-  ];
+module.exports = async ({ text, reply, msg }) => {
+  if (text.toLowerCase() === 'اذكار') {
+    const index = 0;
+    await reply(azkar[index], [
+      { id: 'azkar_next_1', text: 'التالي ➡️' },
+      { id: 'azkar_home', text: '🔙 رجوع' }
+    ]);
+  } else if (text.startsWith('azkar_next_')) {
+    const index = parseInt(text.split('_')[2]);
+    if (azkar[index]) {
+      const buttons = [];
+      if (azkar[index + 1]) buttons.push({ id: `azkar_next_${index + 1}`, text: 'التالي ➡️' });
+      if (index > 0) buttons.push({ id: `azkar_next_${index - 1}`, text: '⬅️ السابق' });
+      buttons.push({ id: 'azkar_home', text: '🔙 رجوع' });
 
-  // إذا كتب المستخدم "اذكار"
-  if (text.toLowerCase().includes('اذكار')) {
-    await sock.sendMessage(from, {
-      text: azkar[0],
-      buttons: createButtons(0),
-      headerType: 1
-    }, { quoted: msg });
-  }
-
-  // معالجة الرد على الأزرار
-  if (msg.message?.buttonsResponseMessage) {
-    const btnId = msg.message.buttonsResponseMessage.selectedButtonId;
-
-    if (btnId.startsWith('azkar_')) {
-      let index = parseInt(btnId.split('_')[2]) || 0;
-
-      if (btnId.startsWith('azkar_next')) {
-        index = Math.min(index + 1, azkar.length - 1);
-      } else if (btnId.startsWith('azkar_prev')) {
-        index = Math.max(index - 1, 0);
-      } else if (btnId === 'azkar_home') {
-        index = 0;
-      }
-
-      await sock.sendMessage(from, {
-        text: azkar[index],
-        buttons: createButtons(index),
-        headerType: 1
-      }, { quoted: msg });
+      await reply(azkar[index], buttons);
     }
+  } else if (text === 'azkar_home') {
+    await reply('عدنا إلى البداية! أرسل "اذكار" لبدء التصفح من جديد.');
   }
 };
