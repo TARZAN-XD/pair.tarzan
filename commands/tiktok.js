@@ -1,37 +1,42 @@
 const axios = require('axios');
-const { default: axiosRetry } = require('axios-retry');
-const { getBuffer } = require('../lib/buffer');
+const axiosRetry = require('axios-retry');
 
-axiosRetry(axios, { retries: 3 });
+axiosRetry(axios, {
+  retries: 3,
+  retryDelay: axiosRetry.exponentialDelay,
+  retryCondition: (error) => axiosRetry.isNetworkError(error) || error.code === 'ECONNABORTED'
+});
 
-module.exports = async ({ sock, msg, text }) => {
-  const sender = msg.key.remoteJid;
+module.exports = async (m, sock) => {
+  const body = m.body || m.message?.conversation || "";
+  if (!body.startsWith('.tiktok')) return;
 
-  if (!text.startsWith('.tiktok')) return;
-
-  const url = text.split(' ')[1];
-  if (!url || !url.includes('tiktok.com')) {
-    return await sock.sendMessage(sender, { text: '❌ يرجى إرسال رابط تيك توك صالح بعد الأمر\nمثال: .tiktok https://www.tiktok.com/...' });
+  const url = body.split(" ")[1];
+  if (!url || !url.includes("tiktok.com")) {
+    await sock.sendMessage(m.key.remoteJid, { text: "📌 أرسل الرابط بهذا الشكل:\n.tiktok https://vt.tiktok.com/xxxx" }, { quoted: m });
+    return;
   }
 
   try {
-    const api = `https://tikwm.com/api/?url=${encodeURIComponent(url)}`;
-    const res = await axios.get(api);
-    const data = res.data;
+    await sock.sendMessage(m.key.remoteJid, { text: "🔄 جاري التحميل بدون علامة مائية..." }, { quoted: m });
 
-    if (!data || !data.data || !data.data.play) {
-      return await sock.sendMessage(sender, { text: '❌ لم يتم العثور على الفيديو أو حدث خطأ في التحميل.' });
+    const api = `https://api.tiklydown.me/api/download?url=${encodeURIComponent(url)}`;
+    const { data } = await axios.get(api);
+
+    if (!data || !data.video?.noWatermark) {
+      throw new Error("❌ لم يتم العثور على الفيديو.");
     }
 
-    const videoBuffer = await getBuffer(data.data.play); // بدون علامة مائية
+    const videoBuffer = await axios.get(data.video.noWatermark, { responseType: 'arraybuffer' });
 
-    await sock.sendMessage(sender, {
-      video: videoBuffer,
-      caption: `🎬 تم تحميل فيديو تيك توك:\n${data.data.title || ''}`,
-    });
+    await sock.sendMessage(m.key.remoteJid, {
+      video: Buffer.from(videoBuffer.data),
+      mimetype: 'video/mp4',
+      caption: '✅ تم التحميل بدون علامة مائية.'
+    }, { quoted: m });
 
   } catch (err) {
-    console.error('خطأ في تحميل TikTok:', err);
-    await sock.sendMessage(sender, { text: '❌ حدث خطأ أثناء تحميل الفيديو. حاول مجددًا لاحقًا.' });
+    console.error("❌ خطأ في تحميل فيديو TikTok:", err.message);
+    await sock.sendMessage(m.key.remoteJid, { text: "⚠️ حدث خطأ أثناء تحميل الفيديو. تأكد من الرابط." }, { quoted: m });
   }
 };
