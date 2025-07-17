@@ -1,25 +1,28 @@
-module.exports = async ({ text, reply, sock, msg, from }) => {
+const { proto } = require('@whiskeysockets/baileys');
+
+module.exports = async ({ text, sock, msg, from }) => {
   if (text.toLowerCase() === 'اذكار') {
     await sock.sendMessage(from, {
-      text: "🕌 الأذكار اليومية",
-      buttons: [
-        { buttonId: 'azkar_next', buttonText: { displayText: 'التالي ➡️' }, type: 1 },
-        { buttonId: 'azkar_prev', buttonText: { displayText: '⬅️ السابق' }, type: 1 },
-        { buttonId: 'azkar_back', buttonText: { displayText: '↩️ الرجوع' }, type: 1 }
-      ],
-      headerType: 1
+      text: '🕌 الأذكار اليومية',
+      footer: 'اختر من الأزرار أدناه:',
+      templateButtons: [
+        { index: 1, quickReplyButton: { displayText: '⬅️ السابق', id: 'azkar_prev' } },
+        { index: 2, quickReplyButton: { displayText: 'التالي ➡️', id: 'azkar_next' } },
+        { index: 3, quickReplyButton: { displayText: '↩️ الرجوع', id: 'azkar_back' } }
+      ]
     }, { quoted: msg });
   }
 
-  if (text === 'azkar_next') {
-    await reply('📖 الذكر التالي:\n"سبحان الله وبحمده سبحان الله العظيم"');
+  // التعامل مع الردود
+  if (text === 'azkar_prev') {
+    await sock.sendMessage(from, { text: '📖 الذكر السابق:\n"لا إله إلا الله وحده لا شريك له، له الملك وله الحمد وهو على كل شيء قدير"' }, { quoted: msg });
   }
 
-  if (text === 'azkar_prev') {
-    await reply('📖 الذكر السابق:\n"لا إله إلا الله وحده لا شريك له، له الملك وله الحمد وهو على كل شيء قدير"');
+  if (text === 'azkar_next') {
+    await sock.sendMessage(from, { text: '📖 الذكر التالي:\n"سبحان الله وبحمده سبحان الله العظيم"' }, { quoted: msg });
   }
 
   if (text === 'azkar_back') {
-    await reply('🔙 تم الرجوع إلى القائمة الرئيسية.');
+    await sock.sendMessage(from, { text: '🔙 تم الرجوع إلى القائمة الرئيسية.' }, { quoted: msg });
   }
 };
