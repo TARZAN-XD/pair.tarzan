@@ -1,36 +1,37 @@
-const axios = require("axios");
-const fs = require("fs");
-const { downloadMediaMessage } = require("@whiskeysockets/baileys");
+const axios = require('axios');
+const { default: axiosRetry } = require('axios-retry');
+const { getBuffer } = require('../lib/buffer');
 
-module.exports = {
-  name: "tiktok",
-  description: "تحميل فيديوهات من TikTok",
-  use: ".tiktok [الرابط]",
-  execute: async (sock, msg, command, args) => {
-    try {
-      const url = args[0];
-      if (!url || !url.includes("tiktok")) {
-        return await sock.sendMessage(msg.from, { text: "📌 الرجاء إدخال رابط TikTok صالح." }, { quoted: msg });
-      }
+axiosRetry(axios, { retries: 3 });
 
-      const api = `https://api.tiklydown.me/api/download?url=${url}`;
-      const response = await axios.get(api);
-      const videoUrl = response.data?.video?.url;
+module.exports = async ({ sock, msg, text }) => {
+  const sender = msg.key.remoteJid;
 
-      if (!videoUrl) {
-        return await sock.sendMessage(msg.from, { text: "❌ تعذر تحميل الفيديو، تأكد من الرابط." }, { quoted: msg });
-      }
+  if (!text.startsWith('.tiktok')) return;
 
-      const videoBuffer = (await axios.get(videoUrl, { responseType: "arraybuffer" })).data;
+  const url = text.split(' ')[1];
+  if (!url || !url.includes('tiktok.com')) {
+    return await sock.sendMessage(sender, { text: '❌ يرجى إرسال رابط تيك توك صالح بعد الأمر\nمثال: .tiktok https://www.tiktok.com/...' });
+  }
 
-      await sock.sendMessage(msg.from, {
-        video: videoBuffer,
-        caption: "✅ تم تحميل فيديو TikTok."
-      }, { quoted: msg });
+  try {
+    const api = `https://tikwm.com/api/?url=${encodeURIComponent(url)}`;
+    const res = await axios.get(api);
+    const data = res.data;
 
-    } catch (err) {
-      console.error(err);
-      await sock.sendMessage(msg.from, { text: "❌ حدث خطأ أثناء التحميل." }, { quoted: msg });
+    if (!data || !data.data || !data.data.play) {
+      return await sock.sendMessage(sender, { text: '❌ لم يتم العثور على الفيديو أو حدث خطأ في التحميل.' });
     }
+
+    const videoBuffer = await getBuffer(data.data.play); // بدون علامة مائية
+
+    await sock.sendMessage(sender, {
+      video: videoBuffer,
+      caption: `🎬 تم تحميل فيديو تيك توك:\n${data.data.title || ''}`,
+    });
+
+  } catch (err) {
+    console.error('خطأ في تحميل TikTok:', err);
+    await sock.sendMessage(sender, { text: '❌ حدث خطأ أثناء تحميل الفيديو. حاول مجددًا لاحقًا.' });
   }
 };
