@@ -13,6 +13,18 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// 📦 تحميل جميع ملفات الأوامر من مجلد commands/
+const commands = [];
+const commandsPath = path.join(__dirname, 'commands');
+fs.readdirSync(commandsPath).forEach(file => {
+  if (file.endsWith('.js')) {
+    const command = require(`./commands/${file}`);
+    if (typeof command === 'function') {
+      commands.push(command);
+    }
+  }
+});
+
 const startSock = async () => {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
   const { version } = await fetchLatestBaileysVersion();
@@ -58,12 +70,13 @@ const startSock = async () => {
 
     const reply = (message) => sock.sendMessage(from, { text: message }, { quoted: msg });
 
-    if (text.toLowerCase().includes('اذكار')) {
-      reply('🌿 قال رسول الله ﷺ: "ألا أدلك على كنز من كنوز الجنة؟ قل: لا حول ولا قوة إلا بالله"');
-    } else if (text.toLowerCase().includes('دعاء')) {
-      reply('🤲 اللهم إنا نسألك الهداية والتوفيق والرضا والقبول.');
-    } else if (text.toLowerCase().includes('حديث')) {
-      reply('📖 قال رسول الله ﷺ: "من دل على خير فله مثل أجر فاعله"');
+    // ✅ تنفيذ جميع الأوامر التي تم تحميلها من مجلد commands/
+    for (const command of commands) {
+      try {
+        await command({ text, reply, sock, msg, from });
+      } catch (err) {
+        console.error('❌ خطأ في تنفيذ الأمر:', err);
+      }
     }
   });
 };
