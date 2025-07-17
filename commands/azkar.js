@@ -1,28 +1,48 @@
-const { proto } = require('@whiskeysockets/baileys');
+module.exports = async ({ text, reply, sock, msg, from }) => {
+  const azkar = [
+    '📿 *ذكر 1:* سبحان الله وبحمده، سبحان الله العظيم.',
+    '📿 *ذكر 2:* لا إله إلا الله وحده لا شريك له، له الملك وله الحمد وهو على كل شيء قدير.',
+    '📿 *ذكر 3:* أستغفر الله العظيم وأتوب إليه.',
+    '📿 *ذكر 4:* اللهم صل على محمد وعلى آل محمد كما صليت على إبراهيم وعلى آل إبراهيم.',
+    '📿 *ذكر 5:* لا حول ولا قوة إلا بالله العلي العظيم.'
+  ];
 
-const azkarList = [
-  "🕋 *الذكر 1*: سبحان الله وبحمده، سبحان الله العظيم",
-  "🕌 *الذكر 2*: لا إله إلا الله وحده لا شريك له، له الملك وله الحمد وهو على كل شيء قدير",
-  "📿 *الذكر 3*: أستغفر الله العظيم وأتوب إليه",
-  "📖 *الذكر 4*: اللهم صل وسلم على نبينا محمد",
-  "💫 *الذكر 5*: سبحان الله، والحمد لله، ولا إله إلا الله، والله أكبر"
-];
+  // توليد الأزرار حسب الفهرس
+  const createButtons = (index) => [
+    { buttonId: `azkar_prev_${index}`, buttonText: { displayText: '⬅️ السابق' }, type: 1 },
+    { buttonId: `azkar_next_${index}`, buttonText: { displayText: '➡️ التالي' }, type: 1 },
+    { buttonId: 'azkar_home', buttonText: { displayText: '🏠 العودة للبداية' }, type: 1 },
+  ];
 
-module.exports = async ({ text, sock, m }) => {
-  if (text.toLowerCase().startsWith('اذكار')) {
-    const currentIndex = 0;
-
-    const buttons = [
-      { buttonId: `.azkar_prev_${currentIndex}`, buttonText: { displayText: '⬅️ السابق' }, type: 1 },
-      { buttonId: `.azkar_next_${currentIndex}`, buttonText: { displayText: '➡️ التالي' }, type: 1 },
-      { buttonId: `.azkar_back`, buttonText: { displayText: '↩️ العودة' }, type: 1 }
-    ];
-
-    await sock.sendMessage(m.chat, {
-      text: azkarList[currentIndex],
-      buttons,
-      footer: '📿 تصفح الأذكار',
+  // إذا كتب المستخدم "اذكار"
+  if (text.toLowerCase().includes('اذكار')) {
+    await sock.sendMessage(from, {
+      text: azkar[0],
+      buttons: createButtons(0),
       headerType: 1
-    }, { quoted: m });
+    }, { quoted: msg });
+  }
+
+  // معالجة الرد على الأزرار
+  if (msg.message?.buttonsResponseMessage) {
+    const btnId = msg.message.buttonsResponseMessage.selectedButtonId;
+
+    if (btnId.startsWith('azkar_')) {
+      let index = parseInt(btnId.split('_')[2]) || 0;
+
+      if (btnId.startsWith('azkar_next')) {
+        index = Math.min(index + 1, azkar.length - 1);
+      } else if (btnId.startsWith('azkar_prev')) {
+        index = Math.max(index - 1, 0);
+      } else if (btnId === 'azkar_home') {
+        index = 0;
+      }
+
+      await sock.sendMessage(from, {
+        text: azkar[index],
+        buttons: createButtons(index),
+        headerType: 1
+      }, { quoted: msg });
+    }
   }
 };
