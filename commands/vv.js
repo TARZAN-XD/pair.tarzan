@@ -1,47 +1,47 @@
-module.exports = {
-  name: "vv",
-  description: "استعادة صورة أو فيديو العرض لمرة واحدة",
-  category: "owner",
-  use: "<الرد على الوسائط>",
-  async execute(client, message, args) {
-    const { from, quoted, sender } = message;
+const { downloadMediaMessage } = require('@whiskeysockets/baileys');
+const fs = require('fs');
+const path = require('path');
+const mime = require('mime-types');
 
-    // تحقق إذا تم الرد على رسالة
-    if (!quoted || !quoted.message) {
-      return await client.sendMessage(from, {
-        text: "❌ من فضلك قم بالرد على صورة أو فيديو عرض لمرة واحدة."
-      }, { quoted: message });
-    }
+module.exports = async ({ text, reply, sock, msg, from }) => {
+  if (text !== 'vv') return;
 
-    // تحميل الوسائط
-    try {
-      const buffer = await quoted.download();
-      const mtype = quoted.type;
+  const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-      switch (mtype) {
-        case "imageMessage":
-          return await client.sendMessage(from, {
-            image: buffer,
-            caption: "✅ تمت استعادة الصورة."
-          }, { quoted: message });
-
-        case "videoMessage":
-          return await client.sendMessage(from, {
-            video: buffer,
-            caption: "✅ تم استعادة الفيديو."
-          }, { quoted: message });
-
-        default:
-          return await client.sendMessage(from, {
-            text: "❌ فقط الصور والفيديوهات مدعومة."
-          }, { quoted: message });
-      }
-
-    } catch (err) {
-      console.error("خطأ في استرجاع الوسائط:", err);
-      return await client.sendMessage(from, {
-        text: "❌ فشل في استرجاع الوسائط."
-      }, { quoted: message });
-    }
+  if (!quoted) {
+    return await reply('❌ أرسل الأمر *vv* على رد لوسائط العرض مرة واحدة.');
   }
-}
+
+  const mediaType = Object.keys(quoted)[0];
+  const isViewOnce = quoted[mediaType]?.viewOnce;
+
+  if (!isViewOnce) {
+    return await reply('❌ الوسائط ليست من نوع العرض مرة واحدة.');
+  }
+
+  try {
+    const mediaBuffer = await downloadMediaMessage(
+      { key: msg.message.extendedTextMessage.contextInfo.stanzaId ? msg.message.extendedTextMessage.contextInfo : msg.key, message: quoted },
+      'buffer',
+      {},
+      { logger: console }
+    );
+
+    const ext = mime.extension(quoted[mediaType].mimetype);
+    const filename = `viewonce-${Date.now()}.${ext}`;
+    const filePath = path.join(__dirname, '..', 'downloads', filename);
+
+    // تأكد من وجود مجلد downloads
+    if (!fs.existsSync(path.join(__dirname, '..', 'downloads'))) {
+      fs.mkdirSync(path.join(__dirname, '..', 'downloads'));
+    }
+
+    fs.writeFileSync(filePath, mediaBuffer);
+
+    await sock.sendMessage(from, { document: mediaBuffer, fileName: filename, mimetype: quoted[mediaType].mimetype }, { quoted: msg });
+    await reply('✅ تم استخراج الوسائط ذات العرض لمرة واحدة.');
+  } catch (err) {
+    console.error('❌ خطأ في تحميل الوسائط:', err);
+    await reply('❌ حدث خطأ أثناء استخراج الوسائط.');
+  }
+};
