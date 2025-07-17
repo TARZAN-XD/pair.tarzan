@@ -1,5 +1,5 @@
-const data = require('../data/adhkar.json');
-module.exports = function () {
-  const random = Math.floor(Math.random() * data.length);
-  return `📿 *ذكر اليوم:*\n\n${data[random]}`;
+module.exports = async ({ text, reply }) => {
+  if (text.toLowerCase().includes('اذكار')) {
+    reply('🌿 قال رسول الله ﷺ: "ألا أدلك على كنز من كنوز الجنة؟ قل: لا حول ولا قوة إلا بالله"');
+  }
 };
