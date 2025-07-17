@@ -1,48 +1,71 @@
-const { default: makeWASocket, useSingleFileAuthState, DisconnectReason } = require("@whiskeysockets/baileys");
-const { Boom } = require("@hapi/boom");
+const express = require("express");
+const { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
+const qrcode = require("qrcode");
 const fs = require("fs");
 
-const { state, saveState } = useSingleFileAuthState("./auth.json");
+const app = express();
+const PORT = process.env.PORT || 10000;
 
-async function startBot() {
-  const sock = makeWASocket({
+app.use(express.static("public")); // مجلد للملفات الثابتة مثل index.html
+
+(async () => {
+  const { version, isLatest } = await fetchLatestBaileysVersion();
+  const { state, saveCreds } = await useMultiFileAuthState("auth_info");
+
+  let sock = makeWASocket({
+    version,
     auth: state,
-    printQRInTerminal: true,
+    printQRInTerminal: false
   });
 
-  sock.ev.on("connection.update", (update) => {
-    const { connection, lastDisconnect } = update;
+  sock.ev.on("connection.update", async (update) => {
+    const { connection, qr } = update;
+
+    if (qr) {
+      console.log("✅ رمز QR جاهز، افتح صفحة HTML");
+      // حفظ QR مؤقت لعرضه في HTML
+      const qrImage = await qrcode.toDataURL(qr);
+      fs.writeFileSync("./public/qr.html", `
+        <html>
+        <head><title>ربط واتساب</title></head>
+        <body style="text-align:center; font-family:sans-serif;">
+          <h2>👆 امسح رمز QR لتفعيل البوت 👇</h2>
+          <img src="${qrImage}" />
+        </body>
+        </html>
+      `);
+    }
+
+    if (connection === "open") {
+      console.log("✅ تم الاتصال بواتساب بنجاح");
+    }
+
     if (connection === "close") {
-      const shouldReconnect =
-        lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-      console.log("connection closed due to ", lastDisconnect.error, ", reconnecting:", shouldReconnect);
-      if (shouldReconnect) {
-        startBot();
+      const reason = update.lastDisconnect?.error?.output?.statusCode;
+      if (reason !== DisconnectReason.loggedOut) {
+        console.log("🔁 إعادة الاتصال...");
+        sock = makeWASocket({
+          version,
+          auth: state,
+          printQRInTerminal: false
+        });
+      } else {
+        console.log("❌ تم تسجيل الخروج من واتساب");
       }
-    } else if (connection === "open") {
-      console.log("✅ Bot is connected to WhatsApp!");
     }
   });
 
-  sock.ev.on("creds.update", saveState);
+  sock.ev.on("creds.update", saveCreds);
+})();
 
-  sock.ev.on("messages.upsert", async ({ messages, type }) => {
-    if (type !== "notify") return;
+app.get("/", (req, res) => {
+  if (fs.existsSync("./public/qr.html")) {
+    res.sendFile(__dirname + "/public/qr.html");
+  } else {
+    res.send("<h2>✅ البوت متصل بواتساب بالفعل</h2>");
+  }
+});
 
-    const msg = messages[0];
-    if (!msg.message || msg.key.fromMe) return;
-
-    const sender = msg.key.remoteJid;
-    const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
-
-    if (text.toLowerCase().includes("اذكار")) {
-      await sock.sendMessage(sender, { text: "🌿 أذكار الصباح:\n\nاللهم بك أصبحنا وبك أمسينا، وبك نحيا وبك نموت وإليك النشور." });
-    } else if (text.toLowerCase().includes("دعاء")) {
-      await sock.sendMessage(sender, { text: "🤲 دعاء اليوم:\n\nاللهم إني أسألك العفو والعافية في الدنيا والآخرة." });
-    } else if (text.toLowerCase().includes("حديث")) {
-      await sock.sendMessage(sender, { text: "📖 حديث شريف:\n\nقال رسول الله ﷺ: «الدال على الخير كفاعله»" });
-    }
-  });
-}
-
-startBot();
+app.listen(PORT, () => {
+  console.log(`🌐 الواجهة تعمل على http://localhost:${PORT}`);
+});
