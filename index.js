@@ -1,5 +1,4 @@
-const { default: makeWASocket, makeInMemoryStore, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
-const { useSingleFileAuthState } = require('@whiskeysockets/baileys/auth');
+const { default: makeWASocket, useSingleFileAuthState, makeInMemoryStore, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const qrcode = require('qrcode');
 const fs = require('fs');
@@ -28,6 +27,7 @@ async function startBot() {
 
   sock.ev.on('connection.update', async (update) => {
     const { connection, qr } = update;
+
     if (qr) {
       await qrcode.toFile('./public/qr.png', qr);
       console.log("✅ رمز QR تم حفظه في public/qr.png");
