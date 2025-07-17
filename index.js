@@ -1,59 +1,37 @@
-const { default: makeWASocket, useSingleFileAuthState, makeInMemoryStore, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
-const { Boom } = require('@hapi/boom');
-const qrcode = require('qrcode');
-const fs = require('fs');
-const express = require('express');
+Running 'npm start'
+> whatsapp-bot-dini@1.0.0 start
+> node index.js
+/opt/render/project/src/index.js:6
 const { state, saveState } = useSingleFileAuthState('./auth.json');
-
-const app = express();
-app.use(express.static('public'));
-
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/public/index.html');
-});
-
-app.listen(3000, () => {
-  console.log('📡 صفحة QR تعمل على http://localhost:3000');
-});
-
-async function startBot() {
-  const sock = makeWASocket({
-    auth: state,
-    printQRInTerminal: true
-  });
-
-  sock.ev.on('creds.update', saveState);
-
-  sock.ev.on('connection.update', async (update) => {
-    const { connection, qr } = update;
-    if (qr) {
-      await qrcode.toFile('./public/qr.png', qr);
-      console.log("✅ رمز QR تم حفظه في public/qr.png");
-    }
-
-    if (connection === 'open') {
-      console.log('✅ تم الاتصال بواتساب');
-    } else if (connection === 'close') {
-      const shouldReconnect = update.lastDisconnect?.error?.output?.statusCode !== 401;
-      console.log('❌ الاتصال مقطوع... إعادة المحاولة:', shouldReconnect);
-      if (shouldReconnect) startBot();
-    }
-  });
-
-  sock.ev.on('messages.upsert', async ({ messages }) => {
-    const msg = messages[0];
-    if (!msg.message || msg.key.fromMe) return;
-    const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
-    const reply = (t) => sock.sendMessage(msg.key.remoteJid, { text: t });
-
-    if (text?.toLowerCase().includes('اذكار')) {
-      reply("📿 أذكار الصباح:\n1. أصبحنا وأصبح الملك لله...");
-    } else if (text?.toLowerCase().includes('دعاء')) {
-      reply("🤲 دعاء اليوم:\nاللهم إني أسألك العفو والعافية...");
-    } else if (text?.toLowerCase().includes('حديث')) {
-      reply("📖 حديث شريف:\nقال رسول الله ﷺ: 'الدين النصيحة'...");
-    }
-  });
-}
-
-startBot();
+                             ^
+TypeError: useSingleFileAuthState is not a function
+    at Object.<anonymous> (/opt/render/project/src/index.js:6:30)
+    at Module._compile (node:internal/modules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules/cjs/loader:1895:10)
+    at Module.load (node:internal/modules/cjs/loader:1465:32)
+    at Function._load (node:internal/modules/cjs/loader:1282:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+Node.js v22.16.0
+==> Exited with status 1
+==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+==> Running 'npm start'
+> whatsapp-bot-dini@1.0.0 start
+> node index.js
+/opt/render/project/src/index.js:6
+const { state, saveState } = useSingleFileAuthState('./auth.json');
+                             ^
+TypeError: useSingleFileAuthState is not a function
+    at Object.<anonymous> (/opt/render/project/src/index.js:6:30)
+    at Module._compile (node:internal/modules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules/cjs/loader:1895:10)
+    at Module.load (node:internal/modules/cjs/loader:1465:32)
+    at Function._load (node:internal/modules/cjs/loader:1282:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+Node.js v22.16.0
+Need better ways to work with logs? Try theRender CLIor set up a log stream integration
