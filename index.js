@@ -1,71 +1,60 @@
-const express = require("express");
-const { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
-const qrcode = require("qrcode");
-const fs = require("fs");
+const { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const express = require('express');
+const { Boom } = require('@hapi/boom');
+const pino = require('pino');
+const qrcode = require('qrcode');
+const http = require('http');
+const socketIo = require('socket.io');
+const path = require('path');
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIo(server);
+
 const PORT = process.env.PORT || 10000;
 
-app.use(express.static("public")); // مجلد للملفات الثابتة مثل index.html
+app.use(express.static(path.join(__dirname, 'public')));
 
-(async () => {
-  const { version, isLatest } = await fetchLatestBaileysVersion();
-  const { state, saveCreds } = await useMultiFileAuthState("auth_info");
+app.get('/', (_, res) => {
+  res.sendFile(path.join(__dirname, 'public/index.html'));
+});
 
-  let sock = makeWASocket({
-    version,
+async function startBot() {
+  const { state, saveCreds } = await useMultiFileAuthState('session');
+  const { version } = await fetchLatestBaileysVersion();
+  const sock = makeWASocket({
+    logger: pino({ level: 'silent' }),
+    printQRInTerminal: false,
     auth: state,
-    printQRInTerminal: false
+    version,
   });
 
-  sock.ev.on("connection.update", async (update) => {
+  sock.ev.on('connection.update', async (update) => {
     const { connection, qr } = update;
 
     if (qr) {
-      console.log("✅ رمز QR جاهز، افتح صفحة HTML");
-      // حفظ QR مؤقت لعرضه في HTML
       const qrImage = await qrcode.toDataURL(qr);
-      fs.writeFileSync("./public/qr.html", `
-        <html>
-        <head><title>ربط واتساب</title></head>
-        <body style="text-align:center; font-family:sans-serif;">
-          <h2>👆 امسح رمز QR لتفعيل البوت 👇</h2>
-          <img src="${qrImage}" />
-        </body>
-        </html>
-      `);
+      io.emit('qr', qrImage);
+      console.log("✅ رمز QR جاهز وأُرسل للواجهة");
     }
 
-    if (connection === "open") {
-      console.log("✅ تم الاتصال بواتساب بنجاح");
+    if (connection === 'open') {
+      console.log("✅ واتساب متصل الآن");
+      io.emit('connected');
     }
 
-    if (connection === "close") {
-      const reason = update.lastDisconnect?.error?.output?.statusCode;
-      if (reason !== DisconnectReason.loggedOut) {
-        console.log("🔁 إعادة الاتصال...");
-        sock = makeWASocket({
-          version,
-          auth: state,
-          printQRInTerminal: false
-        });
-      } else {
-        console.log("❌ تم تسجيل الخروج من واتساب");
-      }
+    if (connection === 'close') {
+      const shouldReconnect = (update.lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+      console.log('🔁 الاتصال مغلق، إعادة الاتصال:', shouldReconnect);
+      if (shouldReconnect) startBot();
     }
   });
 
-  sock.ev.on("creds.update", saveCreds);
-})();
+  sock.ev.on('creds.update', saveCreds);
+}
 
-app.get("/", (req, res) => {
-  if (fs.existsSync("./public/qr.html")) {
-    res.sendFile(__dirname + "/public/qr.html");
-  } else {
-    res.send("<h2>✅ البوت متصل بواتساب بالفعل</h2>");
-  }
-});
+startBot();
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🌐 الواجهة تعمل على http://localhost:${PORT}`);
 });
