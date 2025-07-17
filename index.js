@@ -1,8 +1,10 @@
-const { default: makeWASocket, useSingleFileAuthState } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, makeInMemoryStore, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const { useSingleFileAuthState } = require('@whiskeysockets/baileys/auth');
 const { Boom } = require('@hapi/boom');
 const qrcode = require('qrcode');
 const fs = require('fs');
 const express = require('express');
+
 const { state, saveState } = useSingleFileAuthState('./auth.json');
 
 const app = express();
@@ -17,7 +19,10 @@ app.listen(3000, () => {
 });
 
 async function startBot() {
-  const sock = makeWASocket({ auth: state });
+  const sock = makeWASocket({
+    auth: state,
+    printQRInTerminal: true,
+  });
 
   sock.ev.on('creds.update', saveState);
 
@@ -40,6 +45,7 @@ async function startBot() {
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0];
     if (!msg.message || msg.key.fromMe) return;
+
     const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
     const reply = (t) => sock.sendMessage(msg.key.remoteJid, { text: t });
 
