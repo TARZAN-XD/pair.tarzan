@@ -13,7 +13,7 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// 📦 تحميل جميع ملفات الأوامر من مجلد commands/
+// 🔁 تحميل جميع ملفات الأوامر من مجلد commands/
 const commands = [];
 const commandsPath = path.join(__dirname, 'commands');
 fs.readdirSync(commandsPath).forEach(file => {
@@ -64,13 +64,22 @@ const startSock = async () => {
     if (!msg.message) return;
 
     const from = msg.key.remoteJid;
-    const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
+    const text = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.buttonsResponseMessage?.selectedButtonId;
 
     if (!text) return;
 
-    const reply = (message) => sock.sendMessage(from, { text: message }, { quoted: msg });
+    const reply = async (message, buttons = null) => {
+      if (buttons && Array.isArray(buttons)) {
+        await sock.sendMessage(from, {
+          text: message,
+          buttons: buttons.map(b => ({ buttonId: b.id, buttonText: { displayText: b.text }, type: 1 })),
+          headerType: 1
+        }, { quoted: msg });
+      } else {
+        await sock.sendMessage(from, { text: message }, { quoted: msg });
+      }
+    };
 
-    // ✅ تنفيذ جميع الأوامر التي تم تحميلها من مجلد commands/
     for (const command of commands) {
       try {
         await command({ text, reply, sock, msg, from });
