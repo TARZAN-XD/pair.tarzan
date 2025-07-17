@@ -1,48 +1,36 @@
 const axios = require("axios");
+const fs = require("fs");
+const { downloadMediaMessage } = require("@whiskeysockets/baileys");
 
 module.exports = {
-  command: ["tiktok", "tt"],
-  description: "تحميل فيديو من TikTok",
-  category: "التحميل",
-  use: ".tiktok <رابط>",
-  async handler(sock, msg, { args }) {
-    const tiktokUrl = args[0];
-    
-    if (!tiktokUrl || !tiktokUrl.includes("tiktok.com")) {
-      return sock.sendMessage(msg.from, { text: "❌ الرجاء إرسال رابط TikTok صالح." }, { quoted: msg });
-    }
-
+  name: "tiktok",
+  description: "تحميل فيديوهات من TikTok",
+  use: ".tiktok [الرابط]",
+  execute: async (sock, msg, command, args) => {
     try {
-      const apiUrl = `https://api.nexoracle.com/downloader/tiktok-nowm?apikey=free_key@maher_apis&url=${encodeURIComponent(tiktokUrl)}`;
-      const res = await axios.get(apiUrl);
-
-      if (!res.data?.result?.url) {
-        return sock.sendMessage(msg.from, { text: "❌ لم أستطع تحميل الفيديو. تأكد من الرابط." }, { quoted: msg });
+      const url = args[0];
+      if (!url || !url.includes("tiktok")) {
+        return await sock.sendMessage(msg.from, { text: "📌 الرجاء إدخال رابط TikTok صالح." }, { quoted: msg });
       }
 
-      const {
-        title,
-        author,
-        metrics,
-        url
-      } = res.data.result;
+      const api = `https://api.tiklydown.me/api/download?url=${url}`;
+      const response = await axios.get(api);
+      const videoUrl = response.data?.video?.url;
 
-      const videoBuffer = await axios.get(url, { responseType: "arraybuffer" }).then(res => res.data);
+      if (!videoUrl) {
+        return await sock.sendMessage(msg.from, { text: "❌ تعذر تحميل الفيديو، تأكد من الرابط." }, { quoted: msg });
+      }
+
+      const videoBuffer = (await axios.get(videoUrl, { responseType: "arraybuffer" })).data;
 
       await sock.sendMessage(msg.from, {
-        video: Buffer.from(videoBuffer),
-        caption:
-          `🎬 *TikTok Video*\n\n` +
-          `📝 *العنوان:* ${title || "بدون عنوان"}\n` +
-          `👤 *الناشر:* @${author.username} (${author.nickname})\n` +
-          `❤️ *الإعجابات:* ${metrics.digg_count}\n` +
-          `💬 *التعليقات:* ${metrics.comment_count}\n` +
-          `🔁 *المشاركات:* ${metrics.share_count}\n`,
+        video: videoBuffer,
+        caption: "✅ تم تحميل فيديو TikTok."
       }, { quoted: msg });
 
     } catch (err) {
-      console.error("❌ خطأ في تحميل TikTok:", err.message);
-      await sock.sendMessage(msg.from, { text: "❌ حدث خطأ أثناء تحميل الفيديو." }, { quoted: msg });
+      console.error(err);
+      await sock.sendMessage(msg.from, { text: "❌ حدث خطأ أثناء التحميل." }, { quoted: msg });
     }
   }
 };
