@@ -1,54 +1,44 @@
-const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
-const fs = require('fs');
-const express = require('express');
-const qrcode = require('qrcode');
-
-// استخدم مجلد auth
-const { state, saveCreds } = await useMultiFileAuthState('./auth');
-
-// إعداد صفحة QR
-const app = express();
-app.use(express.static('public'));
-app.listen(3000, () => {
-  console.log("✅ صفحة QR جاهزة على http://localhost:3000");
-});
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys')
+const pino = require('pino')
 
 async function startBot() {
+  const { state, saveCreds } = await useMultiFileAuthState('auth')
   const sock = makeWASocket({
     auth: state,
-    printQRInTerminal: true
-  });
+    printQRInTerminal: true,
+    logger: pino({ level: 'silent' })
+  })
 
-  sock.ev.on('creds.update', saveCreds);
+  sock.ev.on('creds.update', saveCreds)
 
-  sock.ev.on('connection.update', async ({ connection, qr }) => {
-    if (qr) {
-      await qrcode.toFile('./public/qr.png', qr);
-      console.log("📸 تم إنشاء رمز QR");
+  sock.ev.on('connection.update', (update) => {
+    const { connection, lastDisconnect } = update
+    if (connection === 'close') {
+      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+      console.log('❌ الاتصال مغلق، إعادة الاتصال:', shouldReconnect)
+      if (shouldReconnect) {
+        startBot()
+      }
+    } else if (connection === 'open') {
+      console.log('✅ تم الاتصال بواتساب بنجاح')
     }
+  })
 
-    if (connection === 'open') {
-      console.log("✅ تم الاتصال بنجاح");
-    } else if (connection === 'close') {
-      console.log("❌ الاتصال مغلق... إعادة المحاولة");
-      startBot();
+  sock.ev.on('messages.upsert', async (msg) => {
+    const m = msg.messages[0]
+    if (!m.message || m.key.fromMe) return
+
+    const sender = m.key.remoteJid
+    const text = m.message?.conversation || m.message?.extendedTextMessage?.text || ''
+
+    if (text.toLowerCase().includes('اذكار')) {
+      await sock.sendMessage(sender, { text: '📿 الأذكار:\n- سبحان الله\n- الحمد لله\n- لا إله إلا الله\n- الله أكبر' })
+    } else if (text.toLowerCase().includes('دعاء')) {
+      await sock.sendMessage(sender, { text: '🤲 دعاء:\nاللهم إني أسألك العفو والعافية في الدنيا والآخرة.' })
+    } else if (text.toLowerCase().includes('حديث')) {
+      await sock.sendMessage(sender, { text: '📖 حديث:\nقال رسول الله ﷺ: "الدال على الخير كفاعله"' })
     }
-  });
-
-  sock.ev.on('messages.upsert', async ({ messages }) => {
-    const msg = messages[0];
-    if (!msg.message || msg.key.fromMe) return;
-    const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
-    const reply = (t) => sock.sendMessage(msg.key.remoteJid, { text: t });
-
-    if (text?.toLowerCase().includes('اذكار')) {
-      reply("📿 أذكار الصباح:\nأصبحنا وأصبح الملك لله...");
-    } else if (text?.toLowerCase().includes('دعاء')) {
-      reply("🤲 دعاء اليوم:\nاللهم إني أسألك العفو والعافية...");
-    } else if (text?.toLowerCase().includes('حديث')) {
-      reply("📖 حديث شريف:\nقال رسول الله ﷺ: 'الدين النصيحة'");
-    }
-  });
+  })
 }
 
-startBot();
+startBot()
