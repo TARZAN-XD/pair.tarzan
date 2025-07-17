@@ -1,42 +1,63 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <title>ربط واتساب</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>صفحة رمز QR لواتساب</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background-color: #f5f5f5;
-      padding: 40px;
-    }
-    h2 {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f5f5;
       color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      margin-bottom: 20px;
+      color: #007bff;
+    }
+    #qr-container {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      text-align: center;
     }
     img {
-      margin-top: 20px;
-      max-width: 300px;
+      width: 250px;
+      height: 250px;
     }
-    .refresh {
-      margin-top: 30px;
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 16px;
-      border: none;
-      background-color: #4caf50;
-      color: white;
-      border-radius: 8px;
-      cursor: pointer;
+    #refresh-msg {
+      margin-top: 15px;
+      font-size: 0.9rem;
+      color: #555;
     }
   </style>
 </head>
 <body>
-  <h2>📱 امسح رمز QR لتسجيل الدخول إلى واتساب</h2>
-  <img id="qrImage" src="qr.png?ts=<?=Date.now()?>" alt="QR Code" />
-  <div class="refresh">
-    <button onclick="location.reload()">🔁 تحديث الرمز</button>
+  <h1>مسح رمز QR للاتصال بواتساب</h1>
+  <div id="qr-container">
+    <img id="qr-img" src="qr.png" alt="رمز QR للواتساب" />
+    <div id="refresh-msg">يتم تحديث رمز QR تلقائيًا كل 10 ثواني</div>
   </div>
+
+  <script>
+    function refreshQR() {
+      const qrImg = document.getElementById('qr-img');
+      // أضف قيمة timestamp لتجاوز الكاش وتحديث الصورة
+      qrImg.src = 'qr.png?t=' + new Date().getTime();
+    }
+
+    // تحديث الصورة أول مرة عند تحميل الصفحة
+    refreshQR();
+
+    // تحديث الصورة كل 10 ثواني
+    setInterval(refreshQR, 10000);
+  </script>
 </body>
 </html>
