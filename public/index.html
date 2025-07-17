@@ -2,50 +2,41 @@
 <html lang="ar">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>بوت واتساب ديني</title>
+  <title>ربط واتساب</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
-      background: linear-gradient(to bottom, #1e293b, #0f172a);
-      color: white;
-      font-family: "Cairo", sans-serif;
+      font-family: Arial, sans-serif;
       text-align: center;
-      padding: 50px;
+      background-color: #f5f5f5;
+      padding: 40px;
     }
-    h1 {
-      font-size: 32px;
-      margin-bottom: 10px;
+    h2 {
+      color: #333;
     }
-    p {
-      font-size: 18px;
+    img {
+      margin-top: 20px;
+      max-width: 300px;
     }
-    .status {
-      background: #22c55e;
-      display: inline-block;
-      padding: 10px 20px;
-      border-radius: 15px;
-      margin: 20px 0;
-      font-weight: bold;
+    .refresh {
+      margin-top: 30px;
     }
     button {
-      background-color: #3b82f6;
-      border: none;
       padding: 10px 20px;
-      color: white;
       font-size: 16px;
-      border-radius: 10px;
+      border: none;
+      background-color: #4caf50;
+      color: white;
+      border-radius: 8px;
       cursor: pointer;
-      transition: background 0.3s;
-    }
-    button:hover {
-      background-color: #2563eb;
     }
   </style>
 </head>
 <body>
-  <h1>📿 بوت واتساب ديني</h1>
-  <p>البوت متصل حاليًا بحساب واتساب ✅</p>
-  <div class="status">الحالة: نشط ومتصّل</div>
-  <button onclick="location.reload()">🔄 تحديث الصفحة</button>
+  <h2>📱 امسح رمز QR لتسجيل الدخول إلى واتساب</h2>
+  <img id="qrImage" src="qr.png?ts=<?=Date.now()?>" alt="QR Code" />
+  <div class="refresh">
+    <button onclick="location.reload()">🔁 تحديث الرمز</button>
+  </div>
 </body>
 </html>
