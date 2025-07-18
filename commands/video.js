@@ -1,45 +1,73 @@
-const axios = require('axios');
+const axios = require("axios");
 
 module.exports = async ({ sock, msg, text, reply, from }) => {
-  // تحقق أن الأمر يبدأ بـ "video"
-  if (!text.startsWith('video')) return;
+  if (!text.startsWith("video")) return;
 
-  // استخراج الكلمات أو الرابط من النص
-  const parts = text.trim().split(' ');
-  if (parts.length < 2) {
-    return reply('❌ يرجى كتابة رابط اليوتيوب أو كلمات البحث بعد الأمر.\nمثال:\nvideo https://youtube.com/... \nأو\nvideo دعاء جميل');
+  const args = text.split(" ");
+  if (args.length < 2) {
+    return reply("❌ أرسل رابط الفيديو أو كلمات البحث بعد الأمر\nمثال:\nvideo https://youtube.com/... أو video دعاء جميل");
   }
 
-  // النص أو الرابط بعد الأمر
-  const query = parts.slice(1).join(' ');
+  const input = args.slice(1).join(" ");
+  const isUrl = /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//.test(input);
 
   try {
-    await sock.sendMessage(from, { react: { text: '🔎', key: msg.key } });
+    await sock.sendMessage(from, { react: { text: "⏳", key: msg.key } });
 
-    const apiUrl = `https://api.zahwazein.xyz/downloader/ytmp4?apikey=zenzkey_7e7ff13a15&url=${encodeURIComponent(query)}`;
-    const { data } = await axios.get(apiUrl);
+    let videoUrl = input;
 
-    if (!data.status || !data.result || !data.result.url) {
-      return reply('❌ تعذر تحميل الفيديو. تأكد من صحة الرابط أو الكلمات.');
+    // في حال لم يكن رابط، نقوم بالبحث عن الفيديو
+    if (!isUrl) {
+      const searchRes = await axios.get(`https://ytsearch-api.p.rapidapi.com/search`, {
+        params: {
+          query: input,
+          type: "video",
+          sort_by: "relevance"
+        },
+        headers: {
+          'X-RapidAPI-Key': '0', // طلب بدون مفتاح فعلي
+          'X-RapidAPI-Host': 'ytsearch-api.p.rapidapi.com'
+        }
+      });
+
+      if (!searchRes.data || !searchRes.data.videos || searchRes.data.videos.length === 0) {
+        return reply("❌ لم يتم العثور على نتائج.");
+      }
+
+      videoUrl = `https://www.youtube.com/watch?v=${searchRes.data.videos[0].video_id}`;
     }
 
-    const { title, url } = data.result;
+    // الآن نحمّل الفيديو باستخدام API مجاني (yt-dlp backend)
+    const res = await axios.get(`https://youtube-video-download-info.p.rapidapi.com/dl`, {
+      params: { url: videoUrl },
+      headers: {
+        'X-RapidAPI-Key': '0',
+        'X-RapidAPI-Host': 'youtube-video-download-info.p.rapidapi.com'
+      }
+    });
 
-    await reply(`📥 يتم الآن تحميل: *${title}* ... الرجاء الانتظار.`);
+    if (!res.data || !res.data.formats || res.data.formats.length === 0) {
+      return reply("❌ لم يتم العثور على فيديو قابل للتحميل.");
+    }
 
-    const videoRes = await axios.get(url, { responseType: 'arraybuffer' });
-    const videoBuffer = Buffer.from(videoRes.data, 'binary');
+    const video = res.data.formats.find(f => f.mimeType.includes("video/mp4") && f.qualityLabel === "360p")
+      || res.data.formats.find(f => f.mimeType.includes("video/mp4"));
+
+    if (!video || !video.url) {
+      return reply("❌ تعذر استخراج رابط الفيديو.");
+    }
+
+    const videoBuffer = await axios.get(video.url, { responseType: "arraybuffer" });
 
     await sock.sendMessage(from, {
-      video: videoBuffer,
-      caption: `🎬 *${title}*\nتم التحميل من يوتيوب.`,
+      video: Buffer.from(videoBuffer.data),
+      caption: `📥 تم تحميل الفيديو بنجاح.\n${videoUrl}`,
     }, { quoted: msg });
 
-    await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
+    await sock.sendMessage(from, { react: { text: "✅", key: msg.key } });
 
   } catch (err) {
-    console.error('خطأ في تحميل الفيديو:', err);
-    await reply('❌ حدث خطأ أثناء تحميل الفيديو. حاول مرة أخرى.');
-    await sock.sendMessage(from, { react: { text: '❌', key: msg.key } });
+    console.error("❌ Video Error:", err.message);
+    await reply("❌ حدث خطأ أثناء تحميل الفيديو. حاول مرة أخرى أو أرسل رابطًا مختلفًا.");
   }
 };
