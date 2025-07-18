@@ -1,56 +1,45 @@
-const yts = require('yt-search');
-const fetch = require('node-fetch');
+const axios = require('axios');
 
-module.exports = {
-  command: ['video2', 'vid'],
-  description: 'تحميل فيديو من اليوتيوب عن طريق الرابط أو البحث',
-  category: 'download',
-  use: '.video2 <رابط أو كلمة بحث>',
-  react: "🎥",
-  async handler({ sock, msg, text }) {
-    const sender = msg.key.remoteJid;
+module.exports = async ({ sock, msg, text, reply, from }) => {
+  // تحقق أن الأمر يبدأ بـ "video"
+  if (!text.startsWith('video')) return;
 
-    if (!text) {
-      return await sock.sendMessage(sender, { text: '❌ يرجى كتابة اسم فيديو أو رابط YouTube!' }, { quoted: msg });
+  // استخراج الكلمات أو الرابط من النص
+  const parts = text.trim().split(' ');
+  if (parts.length < 2) {
+    return reply('❌ يرجى كتابة رابط اليوتيوب أو كلمات البحث بعد الأمر.\nمثال:\nvideo https://youtube.com/... \nأو\nvideo دعاء جميل');
+  }
+
+  // النص أو الرابط بعد الأمر
+  const query = parts.slice(1).join(' ');
+
+  try {
+    await sock.sendMessage(from, { react: { text: '🔎', key: msg.key } });
+
+    const apiUrl = `https://api.zahwazein.xyz/downloader/ytmp4?apikey=zenzkey_7e7ff13a15&url=${encodeURIComponent(query)}`;
+    const { data } = await axios.get(apiUrl);
+
+    if (!data.status || !data.result || !data.result.url) {
+      return reply('❌ تعذر تحميل الفيديو. تأكد من صحة الرابط أو الكلمات.');
     }
 
-    let videoUrl, title;
+    const { title, url } = data.result;
 
-    try {
-      // التحقق من أنه رابط يوتيوب
-      if (text.match(/(youtube\.com|youtu\.be)/)) {
-        videoUrl = text;
-        const videoInfo = await yts({ videoId: text.split(/[=/]/).pop() });
-        title = videoInfo.title;
-      } else {
-        // البحث عن الفيديو
-        const search = await yts(text);
-        if (!search.videos.length) return await sock.sendMessage(sender, { text: '❌ لم يتم العثور على نتائج!' }, { quoted: msg });
+    await reply(`📥 يتم الآن تحميل: *${title}* ... الرجاء الانتظار.`);
 
-        videoUrl = search.videos[0].url;
-        title = search.videos[0].title;
-      }
+    const videoRes = await axios.get(url, { responseType: 'arraybuffer' });
+    const videoBuffer = Buffer.from(videoRes.data, 'binary');
 
-      await sock.sendMessage(sender, { text: '⏳ *جارٍ تحميل الفيديو...*' }, { quoted: msg });
+    await sock.sendMessage(from, {
+      video: videoBuffer,
+      caption: `🎬 *${title}*\nتم التحميل من يوتيوب.`,
+    }, { quoted: msg });
 
-      // استدعاء API
-      const apiUrl = `https://apis.davidcyriltech.my.id/download/ytmp4?url=${encodeURIComponent(videoUrl)}`;
-      const response = await fetch(apiUrl);
-      const data = await response.json();
+    await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
 
-      if (!data.success) return await sock.sendMessage(sender, { text: '❌ فشل في تحميل الفيديو!' }, { quoted: msg });
-
-      await sock.sendMessage(sender, {
-        video: { url: data.result.download_url },
-        mimetype: 'video/mp4',
-        caption: `🎬 *${title}*\n\n> 👑 بواسطة طــــــرزان الواقدي`
-      }, { quoted: msg });
-
-      await sock.sendMessage(sender, { text: `✅ *${title}* تم تحميله بنجاح!` }, { quoted: msg });
-
-    } catch (error) {
-      console.error(error);
-      await sock.sendMessage(sender, { text: `❌ حدث خطأ:\n${error.message}` }, { quoted: msg });
-    }
+  } catch (err) {
+    console.error('خطأ في تحميل الفيديو:', err);
+    await reply('❌ حدث خطأ أثناء تحميل الفيديو. حاول مرة أخرى.');
+    await sock.sendMessage(from, { react: { text: '❌', key: msg.key } });
   }
 };
