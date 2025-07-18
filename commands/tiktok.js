@@ -42,7 +42,7 @@ module.exports = async ({ sock, msg, text, reply, from }) => {
         `💬 التعليقات: ${metrics.comment_count}\n` +
         `🔁 المشاركات: ${metrics.share_count}\n` +
         `⬇️ التحميلات: ${metrics.download_count}\n\n` +
-        `> © powered by malvin`
+        `> تم التحميل بواسطه طـــــرزان الواقدي`
     }, { quoted: msg });
 
     await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
