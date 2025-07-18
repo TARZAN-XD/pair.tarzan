@@ -3,61 +3,108 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>صفحة رمز QR لواتساب</title>
+  <title>رمز QR لربط واتساب</title>
   <style>
     body {
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      background: #f5f5f5;
-      color: #333;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      font-family: 'Cairo', sans-serif;
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
-      margin: 0;
-      padding: 20px;
+      color: #fff;
+      overflow: hidden;
+      position: relative;
     }
+
     h1 {
-      margin-bottom: 20px;
-      color: #007bff;
+      font-size: 2rem;
+      margin-bottom: 25px;
+      color: #00e0ff;
+      text-shadow: 1px 1px 5px #000;
     }
+
     #qr-container {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      background: rgba(255, 255, 255, 0.1);
+      padding: 25px;
+      border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
       text-align: center;
+      backdrop-filter: blur(10px);
     }
+
     img {
-      width: 250px;
-      height: 250px;
+      width: 260px;
+      height: 260px;
+      border-radius: 10px;
+      border: 3px solid #00e0ff;
     }
+
     #refresh-msg {
       margin-top: 15px;
-      font-size: 0.9rem;
-      color: #555;
+      font-size: 1rem;
+      color: #ccc;
     }
+
+    #manual-refresh {
+      margin-top: 10px;
+      padding: 10px 20px;
+      background: #00e0ff;
+      border: none;
+      color: #000;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    #manual-refresh:hover {
+      background: #00bcd4;
+    }
+
+    /* توقيع طرزان الواقدي */
+    #signature {
+      position: absolute;
+      bottom: 15px;
+      font-size: 1.4rem;
+      font-family: 'Creepster', cursive;
+      color: #ff0000;
+      text-shadow: 0 0 10px #ff0000, 0 0 20px #990000, 0 0 30px #660000;
+      animation: flicker 2s infinite;
+      user-select: none;
+    }
+
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; transform: scale(1.05); }
+    }
+
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&family=Creepster&display=swap');
   </style>
 </head>
 <body>
   <h1>مسح رمز QR للاتصال بواتساب</h1>
+
   <div id="qr-container">
     <img id="qr-img" src="qr.png" alt="رمز QR للواتساب" />
-    <div id="refresh-msg">يتم تحديث رمز QR تلقائيًا كل 10 ثواني</div>
+    <div id="refresh-msg">يتم تحديث رمز QR تلقائيًا كل 10 ثوانٍ</div>
+    <button id="manual-refresh" onclick="refreshQR()">تحديث يدوي</button>
   </div>
+
+  <!-- توقيع مرعب -->
+  <div id="signature">طرزان الواقدي</div>
 
   <script>
     function refreshQR() {
       const qrImg = document.getElementById('qr-img');
-      // أضف قيمة timestamp لتجاوز الكاش وتحديث الصورة
       qrImg.src = 'qr.png?t=' + new Date().getTime();
     }
 
-    // تحديث الصورة أول مرة عند تحميل الصفحة
-    refreshQR();
-
-    // تحديث الصورة كل 10 ثواني
-    setInterval(refreshQR, 10000);
+    refreshQR(); // تحديث مبدئي
+    setInterval(refreshQR, 10000); // تحديث تلقائي كل 10 ثواني
   </script>
 </body>
 </html>
