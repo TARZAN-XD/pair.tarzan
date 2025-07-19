@@ -1,57 +1,53 @@
-const { malvin } = require("../malvin");
-const axios = require("axios");
+const axios = require('axios');
 
-malvin({
-    pattern: "img",
-    alias: ["صورة", "بحث", "صور", "image", "googleimage"],
-    react: "🖼️",
-    desc: "بحث وتحميل صور من جوجل",
-    category: "التنزيل",
-    use: ".img <الكلمة>",
-    filename: __filename
-}, async (conn, mek, m, { reply, args, from }) => {
-    try {
-        const query = args.join(" ");
-        if (!query) {
-            return reply("📸 الرجاء إدخال كلمة للبحث عنها.\n\nمثال: `.img قطط لطيفة`");
+module.exports = async ({ sock, msg, text, reply, from }) => {
+  if (!text.startsWith('img')) return;
+
+  const parts = text.trim().split(' ');
+  if (parts.length < 2) {
+    return reply('❌ يرجى كتابة كلمة أو رابط صورة.\nمثال: img قطة');
+  }
+
+  const query = parts.slice(1).join(' ');
+
+  try {
+    await sock.sendMessage(from, { react: { text: '🖼️', key: msg.key } });
+
+    // تحميل صورة من كلمة مفتاحية عبر API Pexels
+    if (!query.startsWith('http')) {
+      const api = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=1`;
+      const response = await axios.get(api, {
+        headers: {
+          Authorization: '563492ad6f91700001000001a3c7dd038d8240fdb8592965c0a7f92e' // مفتاح تجريبي
         }
+      });
 
-        await reply(`🔍 جارٍ البحث عن صور لكلمة: *${query}* ...`);
+      const photo = response.data.photos[0];
+      if (!photo) return reply('❌ لم يتم العثور على صورة، جرب كلمة أخرى.');
 
-        const url = `https://apis.davidcyriltech.my.id/googleimage?query=${encodeURIComponent(query)}`;
-        const response = await axios.get(url);
+      const image = photo.src.original;
+      const buffer = await axios.get(image, { responseType: 'arraybuffer' });
 
-        if (!response.data?.success || !response.data.results?.length) {
-            return reply("❌ لم يتم العثور على أي صور. حاول بكلمات مختلفة.");
-        }
+      await sock.sendMessage(from, {
+        image: Buffer.from(buffer.data, 'binary'),
+        caption: `🖼️ نتائج البحث عن: *${query}*\n> تم بواسطة طــــرزان الواقدي`
+      }, { quoted: msg });
 
-        const results = response.data.results;
-        await reply(`✅ تم العثور على *${results.length}* نتيجة لكلمة *"${query}"*.\n📦 سيتم إرسال أفضل 5 صور...`);
+    } else {
+      // تحميل صورة مباشرة من رابط
+      const buffer = await axios.get(query, { responseType: 'arraybuffer' });
 
-        const selectedImages = results
-            .sort(() => 0.5 - Math.random())
-            .slice(0, 5);
-
-        for (const imageUrl of selectedImages) {
-            try {
-                await conn.sendMessage(
-                    from,
-                    {
-                        image: { url: imageUrl },
-                        caption: `🖼️ نتيجة البحث عن: *${query}*\n\nطلب بواسطة: @${m.sender.split('@')[0]}\n\n🔖 تم التنفيذ بواسطة: Tarzan Alwaqdi 🐺`,
-                        contextInfo: { mentionedJid: [m.sender] }
-                    },
-                    { quoted: mek }
-                );
-            } catch (err) {
-                console.warn(`⚠️ فشل إرسال الصورة: ${imageUrl}`);
-            }
-
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-
-    } catch (error) {
-        console.error('❌ خطأ في البحث:', error);
-        reply(`❌ حدث خطأ أثناء البحث عن الصور: ${error.message || "تحقق من الاتصال أو حاول لاحقاً"}`);
+      await sock.sendMessage(from, {
+        image: Buffer.from(buffer.data, 'binary'),
+        caption: `🖼️ صورة من الرابط:\n${query}\n> بواسطة طــــرزان الواقدي`
+      }, { quoted: msg });
     }
-});
+
+    await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
+
+  } catch (error) {
+    console.error('❌ خطأ في أمر img:', error);
+    await reply('❌ تعذر تحميل الصورة. تحقق من الرابط أو الكلمة وحاول مجددًا.');
+    await sock.sendMessage(from, { react: { text: '❌', key: msg.key } });
+  }
+};
