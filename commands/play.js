@@ -1,54 +1,45 @@
-const yts = require("yt-search");
-const fetch = require("node-fetch");
+const axios = require('axios');
 
-module.exports = {
-  name: "yt2",
-  alias: ["play2", "music"],
-  category: "download",
-  desc: "تحميل الصوت من يوتيوب باستخدام الاسم أو الرابط",
-  use: "yt2 <اسم الأغنية أو رابط اليوتيوب>",
+module.exports = async ({ sock, msg, text, reply, from }) => {
+  if (!text.startsWith('play')) return;
 
-  async exec({ conn, m, args, reply }) {
-    const q = args.join(" ");
-    if (!q) return reply("❌ يرجى كتابة اسم الأغنية أو رابط يوتيوب!");
+  const parts = text.trim().split(' ');
+  if (parts.length < 2) {
+    return reply('❌ يرجى إدخال اسم الأغنية.\nمثال: play يا زهراء');
+  }
 
-    try {
-      let videoUrl, title;
+  const query = parts.slice(1).join(' ');
 
-      if (q.match(/(youtube\.com|youtu\.be)/)) {
-        videoUrl = q;
-        const videoId = q.split(/[=/]/).pop();
-        const videoInfo = await yts({ videoId });
-        title = videoInfo.title;
-      } else {
-        const search = await yts(q);
-        if (!search.videos.length) return reply("❌ لم يتم العثور على نتائج!");
-        videoUrl = search.videos[0].url;
-        title = search.videos[0].title;
-      }
+  try {
+    await sock.sendMessage(from, { react: { text: '⏳', key: msg.key } });
 
-      await reply("⏳ يتم التحميل الآن...");
+    const apiUrl = `https://api.nexoracle.com/downloader/play-audio?apikey=free_key@maher_apis&query=${encodeURIComponent(query)}`;
+    const response = await axios.get(apiUrl);
 
-      const apiUrl = `https://api.davidcyriltech.my.id/download/ytmp3?url=${encodeURIComponent(videoUrl)}`;
-      const res = await fetch(apiUrl);
-      const data = await res.json();
-
-      if (!data.success) return reply("❌ فشل في تحميل الصوت! حاول برابط آخر.");
-
-      await conn.sendMessage(
-        m.chat,
-        {
-          audio: { url: data.result.download_url },
-          mimetype: "audio/mpeg",
-          ptt: false,
-        },
-        { quoted: m }
-      );
-
-      await reply(`✅ *${title}* تم تحميله بنجاح!`);
-    } catch (err) {
-      console.error(err);
-      reply(`❌ خطأ: ${err.message}`);
+    if (!response.data || response.data.status !== 200 || !response.data.result || !response.data.result.url) {
+      return reply('❌ تعذر العثور على الأغنية. حاول باسم مختلف.');
     }
-  },
+
+    const { title, url, duration, channel } = response.data.result;
+
+    await reply(`🎧 جارٍ تحميل: *${title}* (${duration}) من قناة *${channel}*...`);
+
+    const audioData = await axios.get(url, { responseType: 'arraybuffer' });
+    const audioBuffer = Buffer.from(audioData.data, 'binary');
+
+    await sock.sendMessage(from, {
+      audio: audioBuffer,
+      mimetype: 'audio/mp4',
+      ptt: false,
+      fileName: `${title}.mp3`,
+      caption: `🎵 *${title}*\n📺 *${channel}*\n⌛ *${duration}*\n\n> تم التحميل بواسطة طرزان الواقدي`
+    }, { quoted: msg });
+
+    await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
+
+  } catch (err) {
+    console.error('❌ خطأ أثناء تنفيذ أمر play:', err);
+    await reply('❌ حدث خطأ أثناء جلب الصوت. حاول مجددًا لاحقًا.');
+    await sock.sendMessage(from, { react: { text: '❌', key: msg.key } });
+  }
 };
