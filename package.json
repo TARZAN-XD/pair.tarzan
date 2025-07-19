@@ -13,7 +13,6 @@
     "qrcode": "^1.5.1",
     "pino": "^8.14.2",
     "yt-search": "^2.10.7",
-    "node-fetch": "^3.3.1",
-    "ytdl-core": "^4.11.0"
+    "node-fetch": "^2.6.7"
   }
 }
