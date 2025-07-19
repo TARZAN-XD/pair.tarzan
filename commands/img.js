@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 module.exports = async ({ sock, msg, text, reply, from }) => {
-  if (!text.startsWith('img')) return;
+  if (!text.toLowerCase().startsWith('img')) return;
 
   const parts = text.trim().split(' ');
   if (parts.length < 2) {
@@ -11,30 +11,45 @@ module.exports = async ({ sock, msg, text, reply, from }) => {
   const query = parts.slice(1).join(' ');
 
   try {
-    await sock.sendMessage(from, { react: { text: '🖼️', key: msg.key } });
+    await sock.sendMessage(from, { react: { text: '🔍', key: msg.key } });
 
-    // تحميل صورة من كلمة مفتاحية عبر API Pexels
     if (!query.startsWith('http')) {
-      const api = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=1`;
-      const response = await axios.get(api, {
+      // ✅ المحاولة أولًا عبر Pexels
+      const pexelsAPI = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=1`;
+      const pexelsRes = await axios.get(pexelsAPI, {
         headers: {
-          Authorization: '9vySYMFQtn9OjUO2jHt7CQ45Uwfw4fWyE3UcLouC4kb1oqc8Da8cNNHy' // مفتاح تجريبي
+          Authorization: '9vySYMFQtn9OjUO2jHt7CQ45Uwfw4fWyE3UcLouC4kb1oqc8Da8cNNHy'
         }
       });
 
-      const photo = response.data.photos[0];
-      if (!photo) return reply('❌ لم يتم العثور على صورة، جرب كلمة أخرى.');
+      if (pexelsRes.data.photos.length > 0) {
+        const photo = pexelsRes.data.photos[0].src.original;
+        const buffer = await axios.get(photo, { responseType: 'arraybuffer' });
 
-      const image = photo.src.original;
-      const buffer = await axios.get(image, { responseType: 'arraybuffer' });
+        await sock.sendMessage(from, {
+          image: Buffer.from(buffer.data, 'binary'),
+          caption: `🔍 نتيجة البحث عن: *${query}*\n> عبر Pexels\n- بواسطة طــــرزان الواقدي`
+        }, { quoted: msg });
+      } else {
+        // ❗إذا لم يجد نتيجة في Pexels، نجرب Unsplash
+        const unsplash = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&client_id=KTVJieF4bPuxmAs4AqSw95CEH3ozNjU6cTcNSrTrSpE`; // مفتاح تجريبي
+        const unsplashRes = await axios.get(unsplash);
 
-      await sock.sendMessage(from, {
-        image: Buffer.from(buffer.data, 'binary'),
-        caption: `🖼️ نتائج البحث عن: *${query}*\n> تم بواسطة طــــرزان الواقدي`
-      }, { quoted: msg });
+        if (unsplashRes.data.results.length === 0) {
+          return reply('❌ لم يتم العثور على صورة. جرب كلمة أخرى.');
+        }
+
+        const photo = unsplashRes.data.results[0].urls.full;
+        const buffer = await axios.get(photo, { responseType: 'arraybuffer' });
+
+        await sock.sendMessage(from, {
+          image: Buffer.from(buffer.data, 'binary'),
+          caption: `🔍 نتيجة البحث عن: *${query}*\n> عبر Unsplash\n- بواسطة طــــرزان الواقدي`
+        }, { quoted: msg });
+      }
 
     } else {
-      // تحميل صورة مباشرة من رابط
+      // 🔗 إذا كان رابط صورة مباشر
       const buffer = await axios.get(query, { responseType: 'arraybuffer' });
 
       await sock.sendMessage(from, {
@@ -45,9 +60,9 @@ module.exports = async ({ sock, msg, text, reply, from }) => {
 
     await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
 
-  } catch (error) {
-    console.error('❌ خطأ في أمر img:', error);
-    await reply('❌ تعذر تحميل الصورة. تحقق من الرابط أو الكلمة وحاول مجددًا.');
+  } catch (err) {
+    console.error('❌ خطأ في أمر img:', err);
+    await reply('❌ تعذر تحميل الصورة. حاول بكلمة أبسط أو تحقق من الرابط.');
     await sock.sendMessage(from, { react: { text: '❌', key: msg.key } });
   }
 };
