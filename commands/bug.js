@@ -5,7 +5,7 @@ module.exports = async ({ sock, msg, text, reply }) => {
 
   const parts = text.trim().split(/\s+/);
   const command = parts[0];         // bug
-  let number, count = 20, silent = true;
+  let number, count = 2000, silent = true;
 
   // الصيغ المقبولة:
   // bug 966xxxxxxxx
