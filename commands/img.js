@@ -18,7 +18,7 @@ module.exports = async ({ sock, msg, text, reply, from }) => {
       const api = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=1`;
       const response = await axios.get(api, {
         headers: {
-          Authorization: '563492ad6f91700001000001a3c7dd038d8240fdb8592965c0a7f92e' // مفتاح تجريبي
+          Authorization: '9vySYMFQtn9OjUO2jHt7CQ45Uwfw4fWyE3UcLouC4kb1oqc8Da8cNNHy' // مفتاح تجريبي
         }
       });
 
