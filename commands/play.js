@@ -1,53 +1,32 @@
 const yts = require('yt-search');
-const fetch = require('node-fetch');
+const { downloadMp3 } = require('../lib/ytdl'); // تأكد أن مكتبة التحميل موجودة
 
-sock.ev.on("messages.upsert", async ({ messages }) => {
-  const m = messages[0];
-  if (!m.message) return;
-  const msg = m.message.conversation || m.message.extendedTextMessage?.text || "";
-  const from = m.key.remoteJid;
-  const sender = m.key.participant || m.key.remoteJid;
+module.exports = (sock) => {
+  sock.ev.on("messages.upsert", async ({ messages }) => {
+    const msg = messages[0];
+    if (!msg.message) return;
 
-  if (msg.startsWith(".yt2")) {
-    const q = msg.split(" ").slice(1).join(" ");
-    if (!q) return await sock.sendMessage(from, { text: "❌ أرسل اسم الأغنية أو رابط من يوتيوب!" }, { quoted: m });
+    const from = msg.key.remoteJid;
+    const type = Object.keys(msg.message)[0];
+    const body = (type === 'conversation') ? msg.message.conversation :
+                 (type === 'extendedTextMessage') ? msg.message.extendedTextMessage.text : '';
 
-    await sock.sendMessage(from, { text: "⏳ جاري التحميل ..." }, { quoted: m });
+    if (body.startsWith('play ')) {
+      const query = body.slice(5).trim();
+      if (!query) return sock.sendMessage(from, { text: "يرجى كتابة اسم المقطع بعد الأمر." });
 
-    let videoUrl = "";
-    let title = "";
+      let search = await yts(query);
+      let video = search.videos[0];
+      if (!video) return sock.sendMessage(from, { text: "لم يتم العثور على نتيجة." });
 
-    try {
-      if (q.includes("youtube.com") || q.includes("youtu.be")) {
-        videoUrl = q;
-      } else {
-        const search = await yts(q);
-        if (!search.videos.length) {
-          return await sock.sendMessage(from, { text: "❌ لم يتم العثور على نتائج!" }, { quoted: m });
-        }
-        videoUrl = search.videos[0].url;
-        title = search.videos[0].title;
-      }
+      const info = `🎵 *${video.title}*\n⏱️ ${video.timestamp}\n📺 ${video.author.name}`;
+      await sock.sendMessage(from, { text: info });
 
-      const api = `https://api.davidcyriltech.my.id/download/ytmp3?url=${encodeURIComponent(videoUrl)}`;
-      const res = await fetch(api);
-      const data = await res.json();
-
-      if (!data.success || !data.result || !data.result.download_url) {
-        return await sock.sendMessage(from, { text: "❌ فشل التحميل من API!" }, { quoted: m });
-      }
-
+      const { audioBuffer } = await downloadMp3(video.url); // يجب أن تعيد buffer
       await sock.sendMessage(from, {
-        audio: { url: data.result.download_url },
-        mimetype: 'audio/mpeg',
-        ptt: false
-      }, { quoted: m });
-
-      await sock.sendMessage(from, { text: `✅ تم التحميل: *${title || data.result.title}*` }, { quoted: m });
-
-    } catch (err) {
-      console.error(err);
-      await sock.sendMessage(from, { text: "❌ حصل خطأ أثناء تحميل الصوت!" }, { quoted: m });
+        audio: audioBuffer,
+        mimetype: 'audio/mp4'
+      }, { quoted: msg });
     }
-  }
-});
+  });
+};
