@@ -1,63 +1,47 @@
-const ytsr = require('ytsr');
+const yts = require('yt-search');
 const ytdl = require('ytdl-core');
 const fs = require('fs');
 const path = require('path');
 
 module.exports = async ({ sock, msg, text, reply }) => {
-  if (!text.startsWith("play")) return;
+  if (!text.startsWith('play')) return;
 
-  const query = text.split(" ").slice(1).join(" ");
-  if (!query) return reply("❌ يرجى كتابة اسم الأغنية بعد الأمر.\nمثال: play اذكار الصباح");
-
-  await reply("🔍 جاري البحث عن الأغنية...");
+  const query = text.replace(/^play\s*/i, '').trim();
+  if (!query) return reply("❌ يرجى كتابة اسم الأغنية أو رابط اليوتيوب.\nمثال: play عبدالمجيد عبدالله - أحبك");
 
   try {
-    const filters = await ytsr.getFilters(query);
-    const videoFilter = filters.get('Type').get('Video');
-    const searchResults = await ytsr(videoFilter.url, { limit: 1 });
+    await reply('⏳ جاري البحث وتحميل الصوت، الرجاء الانتظار...');
 
-    if (!searchResults.items.length) {
-      return reply("❌ لم يتم العثور على أي نتائج!");
-    }
+    const search = await yts(query);
+    const video = search.videos[0];
+    if (!video) return reply("❌ لم يتم العثور على نتائج.");
 
-    const video = searchResults.items[0];
-    const videoUrl = video.url;
-    const title = video.title.replace(/[^\w\s]/gi, '');
-    const fileName = `${title}.mp3`;
-    const filePath = path.join(__dirname, '../temp', fileName);
+    const info = await ytdl.getInfo(video.url);
+    const format = ytdl.chooseFormat(info.formats, { filter: 'audioonly' });
+    const fileName = `audio_${Date.now()}.mp3`;
+    const filePath = path.join(__dirname, '..', 'temp', fileName);
 
-    // تأكد من وجود مجلد temp
-    if (!fs.existsSync(path.join(__dirname, '../temp'))) {
-      fs.mkdirSync(path.join(__dirname, '../temp'));
-    }
+    const audioStream = ytdl(video.url, { filter: 'audioonly' });
+    const fileWrite = fs.createWriteStream(filePath);
+    audioStream.pipe(fileWrite);
 
-    const stream = ytdl(videoUrl, {
-      filter: "audioonly",
-      quality: "highestaudio"
-    });
-
-    const writeStream = fs.createWriteStream(filePath);
-    stream.pipe(writeStream);
-
-    stream.on("end", async () => {
+    fileWrite.on('finish', async () => {
       await sock.sendMessage(msg.key.remoteJid, {
-        document: fs.readFileSync(filePath),
-        fileName: fileName,
-        mimetype: 'audio/mpeg'
+        audio: fs.readFileSync(filePath),
+        mimetype: 'audio/mp4',
+        fileName: `${video.title}.mp3`
       }, { quoted: msg });
 
       fs.unlinkSync(filePath); // حذف الملف بعد الإرسال
-
-      await reply(`✅ تم إرسال: *${title}*`);
     });
 
-    stream.on("error", async (err) => {
-      console.error(err);
-      await reply("❌ حدث خطأ أثناء تحميل الصوت.");
+    fileWrite.on('error', (err) => {
+      console.error('خطأ في تحميل الصوت:', err);
+      reply("❌ حدث خطأ أثناء تحميل الملف الصوتي.");
     });
 
   } catch (err) {
-    console.error(err);
-    await reply("❌ فشل أثناء تنفيذ الأمر:\n" + err.message);
+    console.error('Play Error:', err);
+    reply("❌ تعذر معالجة الطلب، يرجى المحاولة لاحقًا.");
   }
 };
