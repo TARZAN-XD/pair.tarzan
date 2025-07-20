@@ -1,47 +1,44 @@
-const yts = require('yt-search');
-const ytdl = require('ytdl-core');
-const fs = require('fs');
-const path = require('path');
+const axios = require("axios");
 
-module.exports = async ({ sock, msg, text, reply }) => {
-  if (!text.startsWith('play')) return;
+module.exports = async ({ sock, msg, text, reply, from }) => {
+  if (!text.startsWith("play")) return;
 
-  const query = text.replace(/^play\s*/i, '').trim();
-  if (!query) return reply("❌ يرجى كتابة اسم الأغنية أو رابط اليوتيوب.\nمثال: play عبدالمجيد عبدالله - أحبك");
+  const parts = text.trim().split(" ");
+  const query = parts.slice(1).join(" ");
+
+  if (!query) return reply("❌ يرجى كتابة اسم الأغنية.\nمثال: play نوال الكويتية - قول احبك");
+
+  await reply("🔍 جارٍ البحث عن الأغنية... الرجاء الانتظار ⏳");
 
   try {
-    await reply('⏳ جاري البحث وتحميل الصوت، الرجاء الانتظار...');
+    const apiUrl = `https://api.akuari.my.id/downloader/youtube?query=${encodeURIComponent(query)}`;
+    const response = await axios.get(apiUrl);
 
-    const search = await yts(query);
-    const video = search.videos[0];
-    if (!video) return reply("❌ لم يتم العثور على نتائج.");
+    const result = response.data?.hasil?.[0];
+    if (!result) return reply("❌ لم يتم العثور على نتائج، حاول بصيغة مختلفة.");
 
-    const info = await ytdl.getInfo(video.url);
-    const format = ytdl.chooseFormat(info.formats, { filter: 'audioonly' });
-    const fileName = `audio_${Date.now()}.mp3`;
-    const filePath = path.join(__dirname, '..', 'temp', fileName);
+    const { title, url, thumb } = result;
 
-    const audioStream = ytdl(video.url, { filter: 'audioonly' });
-    const fileWrite = fs.createWriteStream(filePath);
-    audioStream.pipe(fileWrite);
+    await sock.sendMessage(from, {
+      image: { url: thumb },
+      caption:
+        `🎵 *العنوان:* ${title}\n` +
+        `📥 *جاري إرسال الصوت...*\n\n` +
+        `> تم الطلب بواسطة طرزان الواقدي`
+    }, { quoted: msg });
 
-    fileWrite.on('finish', async () => {
-      await sock.sendMessage(msg.key.remoteJid, {
-        audio: fs.readFileSync(filePath),
-        mimetype: 'audio/mp4',
-        fileName: `${video.title}.mp3`
-      }, { quoted: msg });
+    await sock.sendMessage(from, {
+      document: { url },
+      mimetype: "audio/mpeg",
+      fileName: `${title}.mp3`
+    }, { quoted: msg });
 
-      fs.unlinkSync(filePath); // حذف الملف بعد الإرسال
-    });
-
-    fileWrite.on('error', (err) => {
-      console.error('خطأ في تحميل الصوت:', err);
-      reply("❌ حدث خطأ أثناء تحميل الملف الصوتي.");
+    await sock.sendMessage(from, {
+      react: { text: "✅", key: msg.key }
     });
 
   } catch (err) {
-    console.error('Play Error:', err);
-    reply("❌ تعذر معالجة الطلب، يرجى المحاولة لاحقًا.");
+    console.error(err);
+    await reply("❌ تعذر معالجة الطلب، الرجاء المحاولة لاحقًا.");
   }
 };
