@@ -1,44 +1,60 @@
 const axios = require("axios");
+const ytSearch = require("yt-search");
 
-module.exports = async ({ sock, msg, text, reply, from }) => {
-  if (!text.startsWith("play")) return;
+module.exports = async ({ sock, msg, text, reply }) => {
+  if (!text) {
+    return reply("❌ يرجى كتابة اسم الأغنية بعد الأمر\n\nمثال:\n`play محمد عبده الأماكن`");
+  }
 
-  const parts = text.trim().split(" ");
-  const query = parts.slice(1).join(" ");
-
-  if (!query) return reply("❌ يرجى كتابة اسم الأغنية.\nمثال: play نوال الكويتية - قول احبك");
-
-  await reply("🔍 جارٍ البحث عن الأغنية... الرجاء الانتظار ⏳");
+  await reply("⏳ جاري البحث عن الصوت...");
 
   try {
-    const apiUrl = `https://api.akuari.my.id/downloader/youtube?query=${encodeURIComponent(query)}`;
-    const response = await axios.get(apiUrl);
+    const search = await ytSearch(text);
+    const video = search.videos[0];
+    if (!video) return reply("❌ لم يتم العثور على نتائج.");
 
-    const result = response.data?.hasil?.[0];
-    if (!result) return reply("❌ لم يتم العثور على نتائج، حاول بصيغة مختلفة.");
+    const videoUrl = video.url;
+    const apis = [
+      `https://api.akuari.my.id/downloader/youtube?query=${encodeURIComponent(videoUrl)}`,
+      `https://api.lolhuman.xyz/api/ytmp3?apikey=trial&url=${encodeURIComponent(videoUrl)}`,
+      `https://skizo.tech/api/yta?url=${encodeURIComponent(videoUrl)}`,
+      `https://vihangayt.me/download/ytmp3?url=${encodeURIComponent(videoUrl)}`
+    ];
 
-    const { title, url, thumb } = result;
+    for (const api of apis) {
+      try {
+        const res = await axios.get(api);
+        const data = res.data;
 
-    await sock.sendMessage(from, {
-      image: { url: thumb },
-      caption:
-        `🎵 *العنوان:* ${title}\n` +
-        `📥 *جاري إرسال الصوت...*\n\n` +
-        `> تم الطلب بواسطة طرزان الواقدي`
-    }, { quoted: msg });
+        // محاولة استخراج رابط الصوت من أكثر من صيغة استجابة
+        const audioUrl =
+          data?.mp3?.url ||
+          data?.result?.link?.audio ||
+          data?.result?.url ||
+          data?.result;
 
-    await sock.sendMessage(from, {
-      document: { url },
-      mimetype: "audio/mpeg",
-      fileName: `${title}.mp3`
-    }, { quoted: msg });
+        const title =
+          data?.mp3?.judul ||
+          data?.result?.title ||
+          video.title;
 
-    await sock.sendMessage(from, {
-      react: { text: "✅", key: msg.key }
-    });
+        if (!audioUrl) continue;
 
+        await sock.sendMessage(msg.key.remoteJid, {
+          audio: { url: audioUrl },
+          mimetype: "audio/mp4"
+        }, { quoted: msg });
+
+        return await reply(`✅ تم إرسال الصوت: *${title}*`);
+      } catch (err) {
+        console.log(`❌ فشل API: ${api}`);
+        continue;
+      }
+    }
+
+    return reply("⚠️ جميع واجهات API فشلت في المعالجة. حاول لاحقًا أو بجملة بحث مختلفة.");
   } catch (err) {
     console.error(err);
-    await reply("❌ تعذر معالجة الطلب، الرجاء المحاولة لاحقًا.");
+    return reply("❌ حدث خطأ أثناء التحميل.");
   }
 };
