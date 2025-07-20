@@ -1,11 +1,11 @@
 module.exports = async ({ sock, msg, text, reply }) => {
-  if (!text.startsWith('bugbtn')) return;
+  if (!text.startsWith('tarzan')) return;
 
   const parts = text.trim().split(/\s+/);
   const number = parts[1];
 
   if (!number) {
-    return reply("❌ يرجى كتابة الرقم بعد الأمر\nمثال: bugbtn 966xxxxxxxx");
+    return reply("❌ يرجى كتابة الرقم بعد الأمر\nمثال: tarzan 966xxxxxxxx");
   }
 
   const jid = `${number}@s.whatsapp.net`;
