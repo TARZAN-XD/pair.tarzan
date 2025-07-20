@@ -31,7 +31,7 @@ module.exports = async ({ sock, msg, text }) => {
     if (mediaType === 'imageMessage') {
       await sock.sendMessage(senderJid, {
         image: mediaBuffer,
-        caption: '✅ تم استعادة الصورة (عرض لمرة واحدة)',
+        caption: '✅ تم استعادة الصورة (عرض لمرة واحدهة)',
       });
     } else if (mediaType === 'videoMessage') {
       await sock.sendMessage(senderJid, {
