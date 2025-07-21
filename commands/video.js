@@ -1,73 +1,62 @@
-const axios = require("axios");
+const fetch = require('node-fetch');
+
+const fetchWithRetry = async (url, options, retries = 3, delay = 1000) => {
+  for (let i = 0; i < retries; i++) {
+    const res = await fetch(url, options);
+    if (res.ok) return res;
+    console.log(`Retrying (${i + 1})...`);
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+  throw new Error("❌ فشل في جلب الوسائط بعد عدة محاولات");
+};
 
 module.exports = async ({ sock, msg, text, reply, from }) => {
-  if (!text.startsWith("video")) return;
+  if (!text.startsWith("video") && !text.startsWith("mp4")) return;
 
-  const args = text.split(" ");
-  if (args.length < 2) {
-    return reply("❌ أرسل رابط الفيديو أو كلمات البحث بعد الأمر\nمثال:\nvideo https://youtube.com/... أو video دعاء جميل");
+  const parts = text.trim().split(" ");
+  if (parts.length < 2) {
+    return reply("❌ يرجى إدخال رابط فيديو صحيح.\nمثال: video https://...");
   }
 
-  const input = args.slice(1).join(" ");
-  const isUrl = /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//.test(input);
+  const mediaUrl = parts[1];
+  await sock.sendMessage(from, { react: { text: '⏳', key: msg.key } });
 
   try {
-    await sock.sendMessage(from, { react: { text: "⏳", key: msg.key } });
-
-    let videoUrl = input;
-
-    // في حال لم يكن رابط، نقوم بالبحث عن الفيديو
-    if (!isUrl) {
-      const searchRes = await axios.get(`https://ytsearch-api.p.rapidapi.com/search`, {
-        params: {
-          query: input,
-          type: "video",
-          sort_by: "relevance"
-        },
-        headers: {
-          'X-RapidAPI-Key': '0', // طلب بدون مفتاح فعلي
-          'X-RapidAPI-Host': 'ytsearch-api.p.rapidapi.com'
-        }
-      });
-
-      if (!searchRes.data || !searchRes.data.videos || searchRes.data.videos.length === 0) {
-        return reply("❌ لم يتم العثور على نتائج.");
-      }
-
-      videoUrl = `https://www.youtube.com/watch?v=${searchRes.data.videos[0].video_id}`;
-    }
-
-    // الآن نحمّل الفيديو باستخدام API مجاني (yt-dlp backend)
-    const res = await axios.get(`https://youtube-video-download-info.p.rapidapi.com/dl`, {
-      params: { url: videoUrl },
+    const apiURL = `https://api.giftedtech.web.id/api/download/dlmp4?apikey=gifted-md&url=${encodeURIComponent(mediaUrl)}`;
+    const apiRes = await fetchWithRetry(apiURL, {
+      method: 'GET',
       headers: {
-        'X-RapidAPI-Key': '0',
-        'X-RapidAPI-Host': 'youtube-video-download-info.p.rapidapi.com'
+        'User-Agent': 'Mozilla/5.0',
+        'Accept': 'application/json'
       }
     });
 
-    if (!res.data || !res.data.formats || res.data.formats.length === 0) {
-      return reply("❌ لم يتم العثور على فيديو قابل للتحميل.");
-    }
+    const data = await apiRes.json();
+    if (!data.success || !data.result) throw new Error("❌ لم يتم العثور على فيديو.");
 
-    const video = res.data.formats.find(f => f.mimeType.includes("video/mp4") && f.qualityLabel === "360p")
-      || res.data.formats.find(f => f.mimeType.includes("video/mp4"));
+    const { title, quality, thumbail, download_url } = data.result;
+    const videoRes = await fetchWithRetry(download_url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0',
+        'Accept': '*/*'
+      }
+    });
 
-    if (!video || !video.url) {
-      return reply("❌ تعذر استخراج رابط الفيديو.");
-    }
-
-    const videoBuffer = await axios.get(video.url, { responseType: "arraybuffer" });
+    const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
+    if (!videoBuffer || videoBuffer.length === 0) throw new Error("❌ الملف فارغ.");
 
     await sock.sendMessage(from, {
-      video: Buffer.from(videoBuffer.data),
-      caption: `📥 تم تحميل الفيديو بنجاح.\n${videoUrl}`,
+      video: videoBuffer,
+      mimetype: 'video/mp4',
+      caption: `🎬 *العنوان:* ${title || "بدون عنوان"}\n📺 *الجودة:* ${quality || "غير معروفة"}\n\n> تم التحميل بواسطة طرزان الواقدي.`,
+      thumbnail: thumbail ? { url: thumbail } : null
     }, { quoted: msg });
 
-    await sock.sendMessage(from, { react: { text: "✅", key: msg.key } });
+    await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
 
   } catch (err) {
-    console.error("❌ Video Error:", err.message);
-    await reply("❌ حدث خطأ أثناء تحميل الفيديو. حاول مرة أخرى أو أرسل رابطًا مختلفًا.");
+    console.error("❌ خطأ أثناء التحميل:", err.message);
+    await reply("❌ حدث خطأ أثناء تحميل الفيديو. الرجاء المحاولة لاحقًا.");
+    await sock.sendMessage(from, { react: { text: '❌', key: msg.key } });
   }
 };
