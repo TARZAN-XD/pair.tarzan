@@ -4,10 +4,10 @@ const fetchWithRetry = async (url, options, retries = 3, delay = 1000) => {
   for (let i = 0; i < retries; i++) {
     const res = await fetch(url, options);
     if (res.ok) return res;
-    console.log(`Retrying (${i + 1})...`);
+    console.log(`🔁 إعادة المحاولة (${i + 1})...`);
     await new Promise((resolve) => setTimeout(resolve, delay));
   }
-  throw new Error("❌ فشل في جلب الوسائط بعد عدة محاولات");
+  throw new Error("❌ فشل في جلب البيانات بعد عدة محاولات");
 };
 
 module.exports = async ({ sock, msg, text, reply, from }) => {
@@ -15,14 +15,14 @@ module.exports = async ({ sock, msg, text, reply, from }) => {
 
   const parts = text.trim().split(" ");
   if (parts.length < 2) {
-    return reply("❌ يرجى إدخال رابط فيديو صحيح.\nمثال: video https://...");
+    return reply("❌ يرجى كتابة كلمة مفتاحية أو رابط لتحميل الفيديو.\n\n📌 مثال:\n`video cat funny`\nأو\n`video https://tiktok.com/...`");
   }
 
-  const mediaUrl = parts[1];
+  const query = parts.slice(1).join(" ");
   await sock.sendMessage(from, { react: { text: '⏳', key: msg.key } });
 
   try {
-    const apiURL = `https://api.giftedtech.web.id/api/download/dlmp4?apikey=gifted-md&url=${encodeURIComponent(mediaUrl)}`;
+    const apiURL = `https://api.giftedtech.web.id/api/download/dlmp4?apikey=gifted&url=${encodeURIComponent(query)}`;
     const apiRes = await fetchWithRetry(apiURL, {
       method: 'GET',
       headers: {
