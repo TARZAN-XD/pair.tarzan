@@ -36,7 +36,7 @@ module.exports = async ({ sock, msg, text, reply, from }) => {
         `🎬 *${video.title}*\n` +
         `⏱️ *المدة:* ${video.timestamp}\n` +
         `👤 *القناة:* ${video.author.name}\n\n` +
-        `> تم التحميل تلقائيًا بواسطة طرزان الواقدي.`,
+        `> تم التتحميل تلقائيًا بواسطة طرزان الواقدي.`,
     }, { quoted: msg });
 
     await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
