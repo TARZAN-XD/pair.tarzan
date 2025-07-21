@@ -2,7 +2,7 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLat
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const qrCode = require('qrcode');
+const mime = require('mime-types');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -13,7 +13,7 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// تحميل ملفات الأوامر من مجلد commands/
+// 🔁 تحميل جميع ملفات الأوامر من مجلد commands/
 const commands = [];
 const commandsPath = path.join(__dirname, 'commands');
 fs.readdirSync(commandsPath).forEach(file => {
@@ -37,15 +37,15 @@ const startSock = async () => {
 
   sock.ev.on('creds.update', saveCreds);
 
-  sock.ev.on('connection.update', async (update) => {
+  sock.ev.on('connection.update', (update) => {
     const { connection, qr, lastDisconnect } = update;
 
     if (qr) {
-      // توليد وحفظ رمز QR على شكل صورة داخل public/
-      await qrCode.toFile('./public/qr.png', qr).catch(err => {
-        console.error('❌ خطأ في توليد QR:', err);
+      const qrCode = require('qrcode');
+      qrCode.toFile('./public/qr.png', qr, (err) => {
+        if (err) console.error('❌ خطأ في توليد QR:', err);
+        else console.log('✅ تم حفظ كود QR في public/qr.png');
       });
-      console.log('✅ تم حفظ كود QR في public/qr.png');
     }
 
     if (connection === 'close') {
@@ -56,32 +56,6 @@ const startSock = async () => {
 
     if (connection === 'open') {
       console.log('✅ تم الاتصال بواتساب بنجاح');
-
-      // إرسال رسالة ترحيب فخمة على رقم البوت نفسه مرفقة بصورة وأزرار
-      await sock.sendMessage(
-        `${sock.user.id}@s.whatsapp.net`,
-        {
-          image: { url: 'https://b.top4top.io/p_3489wk62d0.jpg' },
-          caption: `✨ *مرحباً بك يا صديقي!* ✨
-
-🔰 لقد تم ربط رقمك بنجاح مع بوت *طرزان الواقدي*  
-🤖 هنا بعض الأوامر للبدء:
-• *video* لتحميل فيديو  
-• *mp3* لتحميل موسيقى  
-• *insta* لتحميل من إنستجرام  
-• *help* لعرض كل الأوامر  
-
-💡 أي استفسار؟ أرسل الأمر *help*`,
-          footer: "بوت طرزان الواقدي ⚔️",
-          buttons: [
-            { buttonId: "help", buttonText: { displayText: "📋 عرض الأوامر" }, type: 1 },
-            { buttonId: "menu", buttonText: { displayText: "🔍 جرب أمر جديد" }, type: 1 }
-          ],
-          headerType: 4 // رسالة صورة + أزرار
-        }
-      );
-
-      console.log("✅ تم إرسال رسالة الترحيب مع الصورة بنجاح");
     }
   });
 
