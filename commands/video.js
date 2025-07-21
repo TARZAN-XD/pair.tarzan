@@ -1,62 +1,43 @@
-const fetch = require('node-fetch');
-
-const fetchWithRetry = async (url, options, retries = 3, delay = 1000) => {
-  for (let i = 0; i < retries; i++) {
-    const res = await fetch(url, options);
-    if (res.ok) return res;
-    console.log(`🔁 إعادة المحاولة (${i + 1})...`);
-    await new Promise((resolve) => setTimeout(resolve, delay));
-  }
-  throw new Error("❌ فشل في جلب البيانات بعد عدة محاولات");
-};
+const ytdl = require('ytdl-core');
 
 module.exports = async ({ sock, msg, text, reply, from }) => {
-  if (!text.startsWith("video") && !text.startsWith("mp4")) return;
+  if (!text.startsWith("video")) return;
 
   const parts = text.trim().split(" ");
   if (parts.length < 2) {
-    return reply("❌ يرجى كتابة كلمة مفتاحية أو رابط لتحميل الفيديو.\n\n📌 مثال:\n`video cat funny`\nأو\n`video https://tiktok.com/...`");
+    return reply("❌ يرجى إدخال رابط فيديو يوتيوب.\nمثال: video https://youtube.com/...");
   }
 
-  const query = parts.slice(1).join(" ");
+  const videoUrl = parts[1];
+  if (!ytdl.validateURL(videoUrl)) {
+    return reply("❌ الرابط غير صالح، تأكد أنه من YouTube.");
+  }
+
   await sock.sendMessage(from, { react: { text: '⏳', key: msg.key } });
 
   try {
-    const apiURL = `https://api.giftedtech.web.id/api/download/dlmp4?apikey=gifted&url=${encodeURIComponent(query)}`;
-    const apiRes = await fetchWithRetry(apiURL, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        'Accept': 'application/json'
-      }
+    const info = await ytdl.getInfo(videoUrl);
+    const title = info.videoDetails.title;
+    const stream = ytdl(videoUrl, {
+      quality: '18', // جودة متوسطة mp4
+      filter: format => format.container === 'mp4' && format.hasVideo && format.hasAudio
     });
 
-    const data = await apiRes.json();
-    if (!data.success || !data.result) throw new Error("❌ لم يتم العثور على فيديو.");
-
-    const { title, quality, thumbail, download_url } = data.result;
-    const videoRes = await fetchWithRetry(download_url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        'Accept': '*/*'
-      }
-    });
-
-    const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
-    if (!videoBuffer || videoBuffer.length === 0) throw new Error("❌ الملف فارغ.");
+    const chunks = [];
+    for await (const chunk of stream) chunks.push(chunk);
+    const buffer = Buffer.concat(chunks);
 
     await sock.sendMessage(from, {
-      video: videoBuffer,
+      video: buffer,
       mimetype: 'video/mp4',
-      caption: `🎬 *العنوان:* ${title || "بدون عنوان"}\n📺 *الجودة:* ${quality || "غير معروفة"}\n\n> تم التحميل بواسطة طرزان الواقدي.`,
-      thumbnail: thumbail ? { url: thumbail } : null
+      caption: `🎬 تم التحميل من YouTube\n\n📌 العنوان: ${title}`,
     }, { quoted: msg });
 
     await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
 
   } catch (err) {
-    console.error("❌ خطأ أثناء التحميل:", err.message);
-    await reply("❌ حدث خطأ أثناء تحميل الفيديو. الرجاء المحاولة لاحقًا.");
+    console.error('❌ خطأ:', err);
+    await reply("❌ تعذر تحميل الفيديو. تأكد من الرابط أو حاول لاحقًا.");
     await sock.sendMessage(from, { react: { text: '❌', key: msg.key } });
   }
 };
