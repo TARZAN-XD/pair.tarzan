@@ -26,7 +26,7 @@ fs.readdirSync(commandsPath).forEach(file => {
   }
 });
 
-// تخزين الرسائل لمنع الحذف
+// ✅ تخزين الرسائل لمنع الحذف
 const msgStore = new Map();
 
 const startSock = async () => {
@@ -85,7 +85,7 @@ const startSock = async () => {
     }
   });
 
-  // ✅ منع حذف الرسائل
+  // ✅ منع الحذف (تفاصيل دقيقة: الاسم، الرقم، الوقت، نوع الرسالة)
   sock.ev.on('messages.update', async updates => {
     for (const { key, update } of updates) {
       if (update?.message === null && key?.remoteJid && !key.fromMe) {
@@ -94,18 +94,26 @@ const startSock = async () => {
           if (!stored?.message) return;
 
           const selfId = sock.user.id.split(':')[0] + "@s.whatsapp.net";
-          const sender = key.participant?.split('@')[0] || 'غير معروف';
+          const senderJid = key.participant || stored.key?.participant || key.remoteJid;
+          const number = senderJid?.split('@')[0] || 'مجهول';
+          const name = stored.pushName || 'غير معروف';
           const type = Object.keys(stored.message)[0];
           const time = moment().tz("Asia/Riyadh").format("YYYY-MM-DD HH:mm:ss");
 
-          const log = `🚫 حذف رسالة:\n▪️ من: wa.me/${sender}\n▪️ الوقت: ${time}\n▪️ النوع: ${type}\n===========================\n`;
-          fs.appendFileSync('./deleted_messages.log', log);
+          const infoMessage =
+`🚫 *تم حذف رسالة!*
+👤 *الاسم:* ${name}
+📱 *الرقم:* wa.me/${number}
+🕒 *الوقت:* ${time}
+📂 *نوع الرسالة:* ${type}`;
 
-          await sock.sendMessage(selfId, {
-            text: `🚫 *تم حذف رسالة من*: wa.me/${sender}`
-          });
+          fs.appendFileSync('./deleted_messages.log',
+            `🧾 حذف من: ${name} - wa.me/${number} - ${type} - ${time}\n==========================\n`
+          );
 
+          await sock.sendMessage(selfId, { text: infoMessage });
           await sock.sendMessage(selfId, { forward: stored });
+
         } catch (err) {
           console.error('❌ خطأ في منع الحذف:', err.message);
         }
@@ -113,7 +121,7 @@ const startSock = async () => {
     }
   });
 
-  // 📥 استقبال الأوامر
+  // 📥 استقبال الأوامر وتخزين الرسائل
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0];
     if (!msg?.message) return;
