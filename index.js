@@ -1,4 +1,9 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const {
+  default: makeWASocket,
+  useMultiFileAuthState,
+  DisconnectReason,
+  fetchLatestBaileysVersion
+} = require('@whiskeysockets/baileys');
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -21,6 +26,9 @@ fs.readdirSync(commandsPath).forEach(file => {
   }
 });
 
+// تخزين الرسائل لمنع الحذف
+const msgStore = new Map();
+
 const startSock = async () => {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
   const { version } = await fetchLatestBaileysVersion();
@@ -29,7 +37,7 @@ const startSock = async () => {
     version,
     auth: state,
     printQRInTerminal: false,
-    generateHighQualityLinkPreview: true,
+    generateHighQualityLinkPreview: true
   });
 
   sock.ev.on('creds.update', saveCreds);
@@ -77,34 +85,27 @@ const startSock = async () => {
     }
   });
 
-  // ✅ ميزة منع الحذف + حفظ بالسجل
+  // ✅ منع حذف الرسائل
   sock.ev.on('messages.update', async updates => {
     for (const { key, update } of updates) {
       if (update?.message === null && key?.remoteJid && !key.fromMe) {
         try {
-          const chat = await sock.loadMessage(key.remoteJid, key.id);
-          if (!chat?.message) return;
+          const stored = msgStore.get(`${key.remoteJid}_${key.id}`);
+          if (!stored?.message) return;
 
           const selfId = sock.user.id.split(':')[0] + "@s.whatsapp.net";
           const sender = key.participant?.split('@')[0] || 'غير معروف';
-          const type = Object.keys(chat.message)[0];
+          const type = Object.keys(stored.message)[0];
           const time = moment().tz("Asia/Riyadh").format("YYYY-MM-DD HH:mm:ss");
 
-          const log = `🚫 حذف رسالة:
-▪️ من: wa.me/${sender}
-▪️ في: ${key.remoteJid}
-▪️ الوقت: ${time}
-▪️ النوع: ${type}
-===========================\n`;
-
+          const log = `🚫 حذف رسالة:\n▪️ من: wa.me/${sender}\n▪️ الوقت: ${time}\n▪️ النوع: ${type}\n===========================\n`;
           fs.appendFileSync('./deleted_messages.log', log);
 
           await sock.sendMessage(selfId, {
             text: `🚫 *تم حذف رسالة من*: wa.me/${sender}`
           });
 
-          await sock.sendMessage(selfId, { forward: chat });
-
+          await sock.sendMessage(selfId, { forward: stored });
         } catch (err) {
           console.error('❌ خطأ في منع الحذف:', err.message);
         }
@@ -118,6 +119,9 @@ const startSock = async () => {
     if (!msg?.message) return;
 
     const from = msg.key.remoteJid;
+    const msgId = msg.key.id;
+    msgStore.set(`${from}_${msgId}`, msg); // تخزين الرسالة فور وصولها
+
     const text = msg.message.conversation ||
                  msg.message.extendedTextMessage?.text ||
                  msg.message.buttonsResponseMessage?.selectedButtonId;
