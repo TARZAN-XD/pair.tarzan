@@ -5,38 +5,34 @@ module.exports = {
     sock.ev.on('messages.update', async (updates) => {
       for (const update of updates) {
         if (
-          update.update.message &&
-          update.update.messageStubType === 68 && // رسالة محذوفة
+          update.update &&
+          update.update.messageStubType === 68 && // حذف الرسالة
           update.key
         ) {
           try {
-            const msgKey = update.key;
-            const chatId = msgKey.remoteJid;
-            const id = msgKey.id;
+            const { remoteJid, id, participant } = update.key;
+            const original = await sock.loadMessage(remoteJid, id);
+            if (!original) return;
 
-            // تحميل الرسالة الأصلية
-            const originalMsg = await sock.loadMessage(chatId, id);
-            if (!originalMsg) return;
+            const sender = participant || remoteJid;
+            const number = sender.split('@')[0];
+            const name = original.pushName || 'مستخدم';
 
-            const pushname = originalMsg.pushName || "مستخدم غير معروف";
-            const senderJid = msgKey.participant || msgKey.remoteJid;
-            const senderNumber = senderJid.split("@")[0];
+            const header = `📛 *تم حذف رسالة!*\n👤 *من:* wa.me/${number}\n💬 *الاسم:* ${name}`;
 
-            let caption = `🚫 *تم حذف رسالة*\n`;
-            caption += `👤 *من:* ${pushname}\n`;
-            caption += `📱 *رقم:* wa.me/${senderNumber}\n`;
-
-            // إرسال لصاحب الجلسة (الرقم المرتبط بالبوت)
-            await sock.sendMessage(sessionNumber, { text: caption });
+            // إرسال الرسالة المحذوفة إلى الرقم المرتبط (صاحب الجلسة)
+            await sock.sendMessage(sessionNumber, { text: header });
 
             // إعادة توجيه الرسالة المحذوفة
-            await sock.forwardMessage(sessionNumber, originalMsg, { force: true });
+            await sock.sendMessage(sessionNumber, {
+              forward: original
+            });
 
-          } catch (e) {
-            console.error("📛 فشل في التعامل مع رسالة محذوفة:", e.message);
+          } catch (err) {
+            console.error("🚫 خطأ عند التعامل مع الحذف:", err.message);
           }
         }
       }
     });
-  },
+  }
 };
