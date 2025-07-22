@@ -16,5 +16,6 @@
     "ytdl-core": "^4.11.1",
     "ytsr": "^3.7.1",
     "node-fetch": "^2.6.7"
+    "moment-timezone": "^0.5.45"
   }
 }
