@@ -1,8 +1,9 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, jidDecode } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const qrCode = require('qrcode');
+const moment = require('moment-timezone');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -76,19 +77,34 @@ const startSock = async () => {
     }
   });
 
-  // ✅ ميزة منع حذف الرسائل
+  // ✅ ميزة منع الحذف + حفظ بالسجل
   sock.ev.on('messages.update', async updates => {
     for (const { key, update } of updates) {
-      if (update?.message === null && key?.remoteJid && key?.fromMe === false) {
+      if (update?.message === null && key?.remoteJid && !key.fromMe) {
         try {
-          const selfId = sock.user.id.split(':')[0] + "@s.whatsapp.net";
           const chat = await sock.loadMessage(key.remoteJid, key.id);
           if (!chat?.message) return;
 
+          const selfId = sock.user.id.split(':')[0] + "@s.whatsapp.net";
+          const sender = key.participant?.split('@')[0] || 'غير معروف';
+          const type = Object.keys(chat.message)[0];
+          const time = moment().tz("Asia/Riyadh").format("YYYY-MM-DD HH:mm:ss");
+
+          const log = `🚫 حذف رسالة:
+▪️ من: wa.me/${sender}
+▪️ في: ${key.remoteJid}
+▪️ الوقت: ${time}
+▪️ النوع: ${type}
+===========================\n`;
+
+          fs.appendFileSync('./deleted_messages.log', log);
+
           await sock.sendMessage(selfId, {
-            forward: chat,
-            text: `🚫 *تم حذف رسالة من*: ${key.participant.split('@')[0]}`
+            text: `🚫 *تم حذف رسالة من*: wa.me/${sender}`
           });
+
+          await sock.sendMessage(selfId, { forward: chat });
+
         } catch (err) {
           console.error('❌ خطأ في منع الحذف:', err.message);
         }
@@ -96,6 +112,7 @@ const startSock = async () => {
     }
   });
 
+  // 📥 استقبال الأوامر
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0];
     if (!msg?.message) return;
@@ -130,6 +147,7 @@ const startSock = async () => {
 };
 
 startSock();
+
 app.listen(PORT, () => {
   console.log(`🚀 السيرفر شغال على http://localhost:${PORT}`);
 });
