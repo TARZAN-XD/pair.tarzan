@@ -16,7 +16,7 @@ module.exports = async ({ sock, msg, text, reply }) => {
 
   // ملف نصي ضخم جداً
   const filePath = path.join(__dirname, '../temp/crash.txt');
-  const heavyFile = '💣'.repeat(10000000); // 1 مليون رمز
+  const heavyFile = '💣'.repeat(100000); // 1 مليون رمز
   fs.writeFileSync(filePath, heavyFile);
 
   // رسالة زرار ثقيلة
