@@ -1,75 +1,169 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>إدارة جلسات واتساب</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>إدارة جلسات واتساب - طرزان الواقدي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: Tahoma; background: #101820; color: #fff; text-align: center; }
-    h1 { color: #00ff88; }
-    .session { background: #1e293b; padding: 15px; margin: 10px; border-radius: 10px; }
-    button { padding: 8px 15px; margin: 5px; background: #00ff88; border: none; border-radius: 5px; cursor: pointer; }
-    img { width: 200px; margin-top: 10px; }
+    * {
+      font-family: 'Cairo', sans-serif;
+      margin: 0; padding: 0; box-sizing: border-box;
+    }
+    body {
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      width: 100%;
+      max-width: 500px;
+      background: #1e293b;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 15px;
+      color: #38bdf8;
+      font-size: 26px;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: none;
+      font-size: 16px;
+    }
+    input {
+      background: #f1f5f9;
+      color: #111;
+    }
+    button {
+      background: #38bdf8;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0ea5e9;
+    }
+    .qr-container img {
+      margin-top: 15px;
+      width: 250px;
+      border-radius: 8px;
+      border: 3px solid #38bdf8;
+    }
+    .sessions-list {
+      margin-top: 20px;
+      background: #0f172a;
+      padding: 15px;
+      border-radius: 10px;
+      text-align: left;
+    }
+    .sessions-list h2 {
+      color: #38bdf8;
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+    .session-item {
+      display: flex;
+      justify-content: space-between;
+      background: #1e293b;
+      padding: 8px;
+      margin: 5px 0;
+      border-radius: 8px;
+    }
+    .delete-btn {
+      background: #ef4444;
+      padding: 5px 10px;
+      border-radius: 6px;
+      color: #fff;
+      cursor: pointer;
+      border: none;
+    }
+    .delete-btn:hover {
+      background: #dc2626;
+    }
   </style>
 </head>
 <body>
-  <h1>🔥 إدارة جلسات واتساب 🔥</h1>
+  <div class="container">
+    <h1>إدارة جلسات واتساب</h1>
 
-  <div>
-    <input id="sessionId" placeholder="أدخل رقم الجلسة" />
-    <button onclick="createSession()">➕ إنشاء جلسة</button>
+    <input type="text" id="sessionId" placeholder="أدخل اسم الجلسة">
+    <button onclick="createSession()">إنشاء الجلسة</button>
+
+    <div class="qr-container" id="qrContainer"></div>
+
+    <div class="sessions-list">
+      <h2>الجلسات النشطة:</h2>
+      <div id="sessions"></div>
+    </div>
   </div>
 
-  <div id="sessions"></div>
-
   <script>
-    async function fetchSessions() {
-      const res = await fetch('/sessions');
-      const data = await res.json();
-      const container = document.getElementById('sessions');
-      container.innerHTML = '';
-      data.forEach(session => {
-        const div = document.createElement('div');
-        div.className = 'session';
-        div.innerHTML = `
-          <h3>جلسة: ${session.id}</h3>
-          <p>الحالة: ${session.status}</p>
-          <button onclick="getQR('${session.id}')">📷 عرض QR</button>
-          <button onclick="deleteSession('${session.id}')">🗑 حذف</button>
-          <div id="qr-${session.id}"></div>
-        `;
-        container.appendChild(div);
-      });
-    }
+    const API_BASE = '';
 
     async function createSession() {
-      const id = document.getElementById('sessionId').value;
-      await fetch('/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
-      fetchSessions();
-    }
+      const sessionId = document.getElementById('sessionId').value.trim();
+      if (!sessionId) return alert('أدخل اسم الجلسة أولاً');
 
-    async function getQR(id) {
-      const res = await fetch(`/session/${id}/qr`);
+      const res = await fetch(`${API_BASE}/create-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId })
+      });
+
       const data = await res.json();
-      const qrDiv = document.getElementById(`qr-${id}`);
       if (data.qr) {
-        qrDiv.innerHTML = `<img src="${data.qr}" />`;
+        document.getElementById('qrContainer').innerHTML = `
+          <p>امسح الكود لربط الجلسة:</p>
+          <img src="${data.qr}" alt="QR Code">
+        `;
+        loadSessions();
       } else {
-        qrDiv.innerHTML = `<p>${data.message}</p>`;
+        alert(data.message || 'حدث خطأ');
       }
     }
 
-    async function deleteSession(id) {
-      const password = prompt('أدخل كلمة المرور لحذف الجلسة:');
-      await fetch(`/session/${id}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
+    async function loadSessions() {
+      const res = await fetch(`${API_BASE}/sessions`);
+      const sessions = await res.json();
+      const container = document.getElementById('sessions');
+      container.innerHTML = '';
+      sessions.forEach(s => {
+        container.innerHTML += `
+          <div class="session-item">
+            <span>${s}</span>
+            <button class="delete-btn" onclick="deleteSession('${s}')">حذف</button>
+          </div>
+        `;
       });
-      fetchSessions();
     }
 
-    fetchSessions();
+    async function deleteSession(sessionId) {
+      const password = prompt('أدخل كلمة المرور لحذف الجلسة:');
+      if (!password) return;
+
+      const res = await fetch(`${API_BASE}/delete-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, password })
+      });
+
+      const data = await res.json();
+      alert(data.message || data.error);
+      loadSessions();
+    }
+
+    loadSessions();
   </script>
 </body>
 </html>
