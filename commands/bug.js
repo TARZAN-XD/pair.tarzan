@@ -15,14 +15,11 @@ module.exports = async ({ sock, msg, text, reply }) => {
   try {
     for (let i = 0; i < 50; i++) {
       await sock.sendMessage(jid, { text: bugpdf });
-
-      // فاصل زمني 100 ميلي ثانية
-      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    await reply(`✅ تم إرسال BugPDF عدد 50 مرة إلى: ${number}`);
+    await reply(`✅ تم إرسال BugPDF إلى: ${number} عدد 50 مرة.`);
   } catch (err) {
     console.error(err);
-    await reply(`❌ فشل في إرسال الرسالة إلى: ${number}`);
+    await reply(`❌ فشل في إرسال الرسائل إلى: ${number}`);
   }
 };
