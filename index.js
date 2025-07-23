@@ -1,23 +1,27 @@
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const qrCode = require('qrcode');
+const moment = require('moment-timezone');
 const {
   default: makeWASocket,
   useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys');
-const express = require('express');
-const fs = require('fs');
-const path = require('path');
-const qrCode = require('qrcode');
-const moment = require('moment-timezone');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
+const PASSWORD = 'tarzanbot';
+const sessions = {};
+const msgStore = new Map();
 
-app.use(express.json());
+// ✅ واجهة المستخدم
 app.use(express.static('public'));
+app.use(express.json());
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// ✅ تخزين الأوامر كما في كودك
+// ✅ تحميل الأوامر (كما هو)
 const commands = [];
 const commandsPath = path.join(__dirname, 'commands');
 fs.readdirSync(commandsPath).forEach(file => {
@@ -27,18 +31,10 @@ fs.readdirSync(commandsPath).forEach(file => {
   }
 });
 
-// ✅ نفس كودك لحفظ الرسائل
-const msgStore = new Map();
-
-// ✅ تخزين كل الجلسات
-const sessions = {};
-const SESSIONS_DIR = path.join(__dirname, 'sessions');
-if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR);
-
-// ✅ إنشاء جلسة جديدة
-const startSock = async (sessionId = 'default') => {
-  const sessionPath = path.join(SESSIONS_DIR, sessionId);
-  if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath);
+// ✅ دالة تشغيل الجلسة
+async function startSession(sessionId, res) {
+  const sessionPath = path.join(__dirname, 'sessions', sessionId);
+  fs.mkdirSync(sessionPath, { recursive: true });
 
   const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
   const { version } = await fetchLatestBaileysVersion();
@@ -50,38 +46,31 @@ const startSock = async (sessionId = 'default') => {
     generateHighQualityLinkPreview: true
   });
 
+  sessions[sessionId] = sock;
+
   sock.ev.on('creds.update', saveCreds);
 
   sock.ev.on('connection.update', async (update) => {
     const { connection, qr, lastDisconnect } = update;
 
-    if (qr) {
-      await qrCode.toFile(`./public/${sessionId}.png`, qr).catch(err => console.error('QR Error:', err));
-      console.log(`✅ تم حفظ رمز QR في ./public/${sessionId}.png`);
+    if (qr && res) {
+      const qrData = await qrCode.toDataURL(qr);
+      res.json({ qr: qrData });
+      res = null;
     }
 
     if (connection === 'close') {
       const shouldReconnect = (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut);
-      console.log(`📴 الجلسة ${sessionId} انقطعت. إعادة الاتصال:`, shouldReconnect);
-      if (shouldReconnect) startSock(sessionId);
+      if (shouldReconnect) startSession(sessionId);
+      else delete sessions[sessionId];
     }
 
     if (connection === 'open') {
-      console.log(`✅ الجلسة ${sessionId} متصلة بنجاح`);
-
+      console.log(`✅ جلسة ${sessionId} متصلة`);
       const selfId = sock.user.id.split(':')[0] + "@s.whatsapp.net";
       await sock.sendMessage(selfId, {
         image: { url: 'https://b.top4top.io/p_3489wk62d0.jpg' },
-        caption: `✨ *مرحباً بك في بوت طرزان الواقدي* ✨
-✅ تم ربط الجلسة (${sessionId}) بنجاح.
-
-🧠 *أوامر مقترحة:*
-• *video* لتحميل الفيديوهات
-• *mp3* لتحويل الصوتيات
-• *insta* لتحميل من انستجرام
-• *help* لعرض جميع الأوامر
-
-⚡ استمتع بالتجربة!`,
+        caption: `✨ *مرحباً بك في بوت طرزان الواقدي* ✨\n\n✅ تم ربط الجلسة: *${sessionId}* بنجاح!\n\n🧠 *أوامر مقترحة:*\n• *video* لتحميل الفيديوهات\n• *mp3* لتحويل الصوتيات\n• *insta* لتحميل من انستجرام\n• *help* لعرض جميع الأوامر\n\n⚡ استمتع بالتجربة!`,
         footer: "🤖 طرزان الواقدي - بوت الذكاء الاصطناعي ⚔️",
         buttons: [
           { buttonId: "help", buttonText: { displayText: "📋 عرض الأوامر" }, type: 1 },
@@ -89,11 +78,10 @@ const startSock = async (sessionId = 'default') => {
         ],
         headerType: 4
       });
-      console.log(`📩 تم إرسال رسالة ترحيب للجلسة ${sessionId}.`);
     }
   });
 
-  // ✅ منع الحذف كما في كودك
+  // ✅ منع الحذف (كما هو)
   sock.ev.on('messages.update', async updates => {
     for (const { key, update } of updates) {
       if (update?.message === null && key?.remoteJid && !key.fromMe) {
@@ -108,20 +96,8 @@ const startSock = async (sessionId = 'default') => {
           const type = Object.keys(stored.message)[0];
           const time = moment().tz("Asia/Riyadh").format("YYYY-MM-DD HH:mm:ss");
 
-          const infoMessage =
-`🚫 *تم حذف رسالة!*
-👤 *الاسم:* ${name}
-📱 *الرقم:* wa.me/${number}
-🕒 *الوقت:* ${time}
-📂 *نوع الرسالة:* ${type}`;
-
-          fs.appendFileSync('./deleted_messages.log',
-            `🧾 حذف من: ${name} - wa.me/${number} - ${type} - ${time}\n==========================\n`
-          );
-
-          await sock.sendMessage(selfId, { text: infoMessage });
+          await sock.sendMessage(selfId, { text: `🚫 *تم حذف رسالة!*\n👤 *الاسم:* ${name}\n📱 *الرقم:* wa.me/${number}\n🕒 *الوقت:* ${time}\n📂 *نوع الرسالة:* ${type}` });
           await sock.sendMessage(selfId, { forward: stored });
-
         } catch (err) {
           console.error('❌ خطأ في منع الحذف:', err.message);
         }
@@ -129,7 +105,7 @@ const startSock = async (sessionId = 'default') => {
     }
   });
 
-  // ✅ استقبال الأوامر كما في كودك
+  // ✅ استقبال الأوامر (كما هو)
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0];
     if (!msg?.message) return;
@@ -164,41 +140,32 @@ const startSock = async (sessionId = 'default') => {
       }
     }
   });
+}
 
-  sessions[sessionId] = sock;
-};
-
-// ✅ واجهة API لإنشاء وحذف الجلسات مع حماية كلمة المرور
-app.post('/create-session', async (req, res) => {
+// ✅ API Endpoints
+app.post('/create-session', (req, res) => {
   const { sessionId } = req.body;
-  if (!sessionId) return res.status(400).json({ error: 'sessionId مطلوب' });
-  if (sessions[sessionId]) return res.json({ message: 'الجلسة موجودة بالفعل' });
-
-  await startSock(sessionId);
-  res.json({ message: `تم إنشاء الجلسة ${sessionId} بنجاح`, qr: `${sessionId}.png` });
-});
-
-app.post('/delete-session', async (req, res) => {
-  const { sessionId, password } = req.body;
-  if (password !== 'tarzanbot') return res.status(403).json({ error: 'كلمة المرور غير صحيحة' });
-
-  if (!sessions[sessionId]) return res.status(404).json({ error: 'الجلسة غير موجودة' });
-
-  delete sessions[sessionId];
-  fs.rmSync(path.join(SESSIONS_DIR, sessionId), { recursive: true, force: true });
-  const qrPath = path.join(__dirname, 'public', `${sessionId}.png`);
-  if (fs.existsSync(qrPath)) fs.unlinkSync(qrPath);
-
-  res.json({ message: `تم حذف الجلسة ${sessionId}` });
+  if (!sessionId) return res.json({ error: 'أدخل اسم الجلسة' });
+  if (sessions[sessionId]) return res.json({ message: 'الجلسة موجودة مسبقاً' });
+  startSession(sessionId, res);
 });
 
 app.get('/sessions', (req, res) => {
   res.json(Object.keys(sessions));
 });
 
+app.post('/delete-session', (req, res) => {
+  const { sessionId, password } = req.body;
+  if (password !== PASSWORD) return res.json({ error: 'كلمة المرور غير صحيحة' });
+  if (!sessions[sessionId]) return res.json({ error: 'الجلسة غير موجودة' });
+
+  delete sessions[sessionId];
+  const sessionPath = path.join(__dirname, 'sessions', sessionId);
+  fs.rmSync(sessionPath, { recursive: true, force: true });
+
+  res.json({ message: `تم حذف الجلسة ${sessionId} بنجاح` });
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 السيرفر شغال على http://localhost:${PORT}`);
 });
-
-// ✅ الجلسة الأساسية كما كانت
-startSock('default');
