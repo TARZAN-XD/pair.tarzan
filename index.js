@@ -13,10 +13,15 @@ const moment = require('moment-timezone');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+app.use(express.json());
 app.use(express.static('public'));
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// تحميل الأوامر من مجلد commands
+const sessionsDir = path.join(__dirname, 'auth_sessions');
+const qrDir = path.join(__dirname, 'qrs');
+if (!fs.existsSync(sessionsDir)) fs.mkdirSync(sessionsDir);
+if (!fs.existsSync(qrDir)) fs.mkdirSync(qrDir);
+
+// تحميل الأوامر
 const commands = [];
 const commandsPath = path.join(__dirname, 'commands');
 fs.readdirSync(commandsPath).forEach(file => {
@@ -26,11 +31,14 @@ fs.readdirSync(commandsPath).forEach(file => {
   }
 });
 
-// ✅ تخزين الرسائل لمنع الحذف
-const msgStore = new Map();
+const activeSessions = new Map(); // تخزين الجلسات
 
-const startSock = async () => {
-  const { state, saveCreds } = await useMultiFileAuthState('auth_info');
+// ✅ إنشاء جلسة جديدة
+const createSession = async (sessionId) => {
+  const sessionPath = path.join(sessionsDir, sessionId);
+  if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath);
+
+  const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
   const { version } = await fetchLatestBaileysVersion();
 
   const sock = makeWASocket({
@@ -44,122 +52,70 @@ const startSock = async () => {
 
   sock.ev.on('connection.update', async (update) => {
     const { connection, qr, lastDisconnect } = update;
-
     if (qr) {
-      await qrCode.toFile('./public/qr.png', qr).catch(err => console.error('QR Error:', err));
-      console.log('✅ تم حفظ رمز QR في ./public/qr.png');
+      const qrPath = path.join(qrDir, `${sessionId}.png`);
+      await qrCode.toFile(qrPath, qr);
+      console.log(`✅ QR جاهز للجلسة ${sessionId}`);
     }
-
+    if (connection === 'open') {
+      console.log(`✅ الجلسة ${sessionId} متصلة`);
+    }
     if (connection === 'close') {
       const shouldReconnect = (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut);
-      console.log('📴 تم قطع الاتصال. إعادة الاتصال:', shouldReconnect);
-      if (shouldReconnect) startSock();
-    }
-
-    if (connection === 'open') {
-      console.log('✅ تم الاتصال بواتساب بنجاح');
-
-      const selfId = sock.user.id.split(':')[0] + "@s.whatsapp.net";
-      await sock.sendMessage(selfId, {
-        image: { url: 'https://b.top4top.io/p_3489wk62d0.jpg' },
-        caption: `✨ *مرحباً بك في بوت طرزان الواقدي* ✨
-
-✅ تم ربط الرقم بنجاح.
-
-🧠 *أوامر مقترحة:*
-• *video* لتحميل الفيديوهات
-• *mp3* لتحويل الصوتيات
-• *insta* لتحميل من انستجرام
-• *help* لعرض جميع الأوامر
-
-⚡ استمتع بالتجربة!`,
-        footer: "🤖 طرزان الواقدي - بوت الذكاء الاصطناعي ⚔️",
-        buttons: [
-          { buttonId: "help", buttonText: { displayText: "📋 عرض الأوامر" }, type: 1 },
-          { buttonId: "menu", buttonText: { displayText: "📦 قائمة الميزات" }, type: 1 }
-        ],
-        headerType: 4
-      });
-
-      console.log("📩 تم إرسال رسالة ترحيب فخمة للرقم المرتبط.");
+      console.log(`📴 تم قطع الاتصال للجلسة ${sessionId}. إعادة الاتصال: ${shouldReconnect}`);
+      if (shouldReconnect) createSession(sessionId);
     }
   });
 
-  // ✅ منع الحذف (تفاصيل دقيقة: الاسم، الرقم، الوقت، نوع الرسالة)
-  sock.ev.on('messages.update', async updates => {
-    for (const { key, update } of updates) {
-      if (update?.message === null && key?.remoteJid && !key.fromMe) {
-        try {
-          const stored = msgStore.get(`${key.remoteJid}_${key.id}`);
-          if (!stored?.message) return;
-
-          const selfId = sock.user.id.split(':')[0] + "@s.whatsapp.net";
-          const senderJid = key.participant || stored.key?.participant || key.remoteJid;
-          const number = senderJid?.split('@')[0] || 'مجهول';
-          const name = stored.pushName || 'غير معروف';
-          const type = Object.keys(stored.message)[0];
-          const time = moment().tz("Asia/Riyadh").format("YYYY-MM-DD HH:mm:ss");
-
-          const infoMessage =
-`🚫 *تم حذف رسالة!*
-👤 *الاسم:* ${name}
-📱 *الرقم:* wa.me/${number}
-🕒 *الوقت:* ${time}
-📂 *نوع الرسالة:* ${type}`;
-
-          fs.appendFileSync('./deleted_messages.log',
-            `🧾 حذف من: ${name} - wa.me/${number} - ${type} - ${time}\n==========================\n`
-          );
-
-          await sock.sendMessage(selfId, { text: infoMessage });
-          await sock.sendMessage(selfId, { forward: stored });
-
-        } catch (err) {
-          console.error('❌ خطأ في منع الحذف:', err.message);
-        }
-      }
-    }
-  });
-
-  // 📥 استقبال الأوامر وتخزين الرسائل
+  // استقبال الرسائل + الأوامر
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0];
     if (!msg?.message) return;
-
     const from = msg.key.remoteJid;
-    const msgId = msg.key.id;
-    msgStore.set(`${from}_${msgId}`, msg); // تخزين الرسالة فور وصولها
 
     const text = msg.message.conversation ||
-                 msg.message.extendedTextMessage?.text ||
-                 msg.message.buttonsResponseMessage?.selectedButtonId;
+      msg.message.extendedTextMessage?.text ||
+      msg.message.buttonsResponseMessage?.selectedButtonId;
 
     if (!text) return;
 
-    const reply = async (message, buttons = null) => {
-      if (buttons && Array.isArray(buttons)) {
-        await sock.sendMessage(from, {
-          text: message,
-          buttons: buttons.map(b => ({ buttonId: b.id, buttonText: { displayText: b.text }, type: 1 })),
-          headerType: 1
-        }, { quoted: msg });
-      } else {
-        await sock.sendMessage(from, { text: message }, { quoted: msg });
-      }
+    const reply = async (message) => {
+      await sock.sendMessage(from, { text: message }, { quoted: msg });
     };
 
     for (const command of commands) {
       try {
         await command({ text, reply, sock, msg, from });
       } catch (err) {
-        console.error('❌ خطأ أثناء تنفيذ الأمر:', err);
+        console.error('❌ خطأ في تنفيذ الأمر:', err);
       }
     }
   });
+
+  activeSessions.set(sessionId, sock);
 };
 
-startSock();
-
-app.listen(PORT, () => {
-  console.log(`🚀 السيرفر شغال على http://localhost:${PORT}`);
+// ✅ عند التشغيل: تحميل كل الجلسات القديمة
+fs.readdirSync(sessionsDir).forEach(sessionId => {
+  createSession(sessionId);
 });
+
+// ✅ API لإضافة جلسة جديدة
+app.post('/add-session', async (req, res) => {
+  const { number } = req.body;
+  if (!number) return res.json({ success: false, message: 'أدخل رقم صحيح' });
+  if (activeSessions.has(number)) return res.json({ success: false, message: 'الجلسة موجودة بالفعل' });
+
+  await createSession(number);
+  res.json({ success: true, message: 'تم إنشاء الجلسة بنجاح' });
+});
+
+// ✅ API لعرض الجلسات
+app.get('/sessions', (req, res) => {
+  res.json({ activeSessions: Array.from(activeSessions.keys()) });
+});
+
+// ✅ عرض واجهة التحكم
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
+app.listen(PORT, () => console.log(`🚀 السيرفر يعمل على http://localhost:${PORT}`));
