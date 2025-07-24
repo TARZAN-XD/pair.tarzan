@@ -1,0 +1,34 @@
+<div align="center">
+  <img src="https://telegra.ph/file/6b5f35a7a379f1a9f8f92.png" alt="Pair Tarzan Logo" width="200"/>
+  <h1>🔥 Pair Tarzan Bot 🔥</h1>
+  <p>
+    أداة قوية لربط واتساب مع بوتات تيليجرام عبر <b>Pairing Code</b> باستخدام مكتبة 
+    <a href="https://github.com/WhiskeySockets/Baileys">Baileys</a>.
+  </p>
+
+  <a href="https://github.com/TARZAN-XD/pair.tarzan/stargazers">
+    <img src="https://img.shields.io/github/stars/TARZAN-XD/pair.tarzan?color=yellow&style=for-the-badge"/>
+  </a>
+  <a href="https://github.com/TARZAN-XD/pair.tarzan/fork">
+    <img src="https://img.shields.io/github/forks/TARZAN-XD/pair.tarzan?color=orange&style=for-the-badge"/>
+  </a>
+  <a href="https://github.com/TARZAN-XD">
+    <img src="https://img.shields.io/badge/Author-TarzanXD-blue?style=for-the-badge"/>
+  </a>
+</div>
+
+---
+
+## ✅ المميزات:
+✔ توليد رمز الاقتران (Pairing Code) بسرعة  
+✔ دعم واجهة HTML لعرض QR  
+✔ اتصال دائم ومستقر مع واتساب  
+✔ يمكن ربطه مع تيليجرام بسهولة  
+
+---
+
+## ⚡ التثبيت
+```bash
+git clone https://github.com/TARZAN-XD/pair.tarzan.git
+cd pair.tarzan
+npm install
