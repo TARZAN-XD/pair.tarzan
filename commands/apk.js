@@ -24,9 +24,9 @@ module.exports = async ({ sock, msg, text, reply, from }) => {
 
         // ✅ تفاصيل التطبيق
         const appDetails = `📦 *${app.title}*\n\n` +
-            `📝 الوصف: ${app.summary}\n` +
-            `⭐ التقييم: ${app.scoreText}\n` +
-            `📥 التحميل: ${app.installs}\n` +
+            `📝 الوصف: ${app.summary || 'غير متوفر'}\n` +
+            `⭐ التقييم: ${app.scoreText || 'غير متوفر'}\n` +
+            `📥 التحميل: ${app.installs || 'غير متوفر'}\n` +
             `🔗 الرابط: ${app.url}\n\n` +
             `⏳ جاري البحث عن رابط التحميل...`;
 
@@ -35,25 +35,35 @@ module.exports = async ({ sock, msg, text, reply, from }) => {
             caption: appDetails
         }, { quoted: msg });
 
-        // ✅ جلب رابط التحميل من APKPure
+        // ✅ البحث عن التطبيق في APKPure
         const searchUrl = `https://apkpure.com/search?q=${encodeURIComponent(app.title)}`;
         const searchResponse = await axios.get(searchUrl);
         const $ = cheerio.load(searchResponse.data);
         const firstLink = $('.search-title > a').attr('href');
+
         if (!firstLink) {
-            return reply('❌ لم أتمكن من العثور على ملف APK.');
+            return reply('❌ لم أتمكن من العثور على ملف APK في APKPure.');
         }
 
+        // ✅ صفحة التحميل
         const apkPage = `https://apkpure.com${firstLink}/download?from=details`;
         const downloadPage = await axios.get(apkPage);
         const $$ = cheerio.load(downloadPage.data);
-        const downloadLink = $$('a[data-dt-event="download_start"]').attr('href');
+        let downloadLink = $$('a[data-dt-event="download_start"]').attr('href');
+
+        if (!downloadLink) {
+            // جلب الرابط من الجافاسكربت إذا لم يكن في الأزرار
+            const scriptContent = downloadPage.data.match(/https:\/\/download\.apkpure\.com\/b\/.*?"/);
+            if (scriptContent) {
+                downloadLink = scriptContent[0].replace(/"/g, '');
+            }
+        }
 
         if (!downloadLink) {
             return reply('❌ لم أتمكن من العثور على رابط التحميل.');
         }
 
-        // ✅ تحميل APK وإرساله
+        // ✅ تحميل APK
         const apkResponse = await axios.get(downloadLink, { responseType: 'arraybuffer' });
         const apkBuffer = Buffer.from(apkResponse.data);
 
