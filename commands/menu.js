@@ -1,6 +1,6 @@
 module.exports = async ({ text, sock, from }) => {
   if (text.toLowerCase() === 'tarzan') {
-    const menuMessage = `
+    const tarzanMessage = `
 ┏━━━━━━━━━━━━━━━━━━━┓
 ✨ *قائمة أوامر بوت طرزان الواقدي* ✨
 ┗━━━━━━━━━━━━━━━━━━━┛
@@ -25,7 +25,7 @@ module.exports = async ({ text, sock, from }) => {
 
     await sock.sendMessage(from, {
       image: { url: 'https://b.top4top.io/p_3489wk62d0.jpg' }, // ضع رابط صورتك هنا
-      caption: menuMessage,
+      caption: tarzanMessage,
       footer: "⚔️ طرزان الواقدي | بوت احترافي",
       buttons: [
         { buttonId: "img", buttonText: { displayText: "🖼️ بحث صور" }, type: 1 },
