@@ -1,62 +1,73 @@
-const gplay = require("google-play-scraper");
-const axios = require("axios");
-const cheerio = require("cheerio");
+const gplay = require('google-play-scraper');
+const axios = require('axios');
+const cheerio = require('cheerio');
 
 module.exports = async ({ sock, msg, text, reply, from }) => {
-  if (!text.startsWith("apk")) return;
+    if (!text.toLowerCase().startsWith('apk')) return;
 
-  const parts = text.trim().split(" ");
-  const query = parts.slice(1).join(" ");
-
-  if (!query) {
-    return reply("❌ اكتب اسم التطبيق.\nمثال: apk واتساب");
-  }
-
-  try {
-    await sock.sendMessage(from, { react: { text: "⏳", key: msg.key } });
-
-    // ✅ البحث في Google Play
-    const searchResults = await gplay.search({ term: query, num: 1 });
-    if (!searchResults.length) {
-      return reply("❌ لم يتم العثور على أي تطبيق. حاول بكلمة أخرى.");
+    const parts = text.trim().split(' ');
+    const appName = parts.slice(1).join(' ');
+    if (!appName) {
+        return reply('❌ اكتب اسم التطبيق.\nمثال: apk واتساب');
     }
 
-    const app = searchResults[0];
+    try {
+        await sock.sendMessage(from, { react: { text: '⏳', key: msg.key } });
 
-    // ✅ جلب رابط APK من APKPure (Scraper)
-    const apkPureUrl = `https://apkpure.com/search?q=${encodeURIComponent(app.title)}`;
-    const { data } = await axios.get(apkPureUrl);
-    const $ = cheerio.load(data);
-    const appPageLink = $("p.title > a").attr("href");
-    if (!appPageLink) return reply("❌ لم أتمكن من إيجاد رابط التحميل.");
+        // ✅ البحث في Google Play
+        const results = await gplay.search({ term: appName, num: 1 });
+        if (!results || results.length === 0) {
+            return reply('❌ لم أجد التطبيق. جرب اسمًا آخر.');
+        }
 
-    const fullAppLink = `https://apkpure.com${appPageLink}`;
+        const app = results[0];
 
-    // جلب رابط التحميل المباشر
-    const appPage = await axios.get(fullAppLink);
-    const $$ = cheerio.load(appPage.data);
-    const downloadPageLink = $$(".fast-download-box a").attr("href");
+        // ✅ تفاصيل التطبيق
+        const appDetails = `📦 *${app.title}*\n\n` +
+            `📝 الوصف: ${app.summary}\n` +
+            `⭐ التقييم: ${app.scoreText}\n` +
+            `📥 التحميل: ${app.installs}\n` +
+            `🔗 الرابط: ${app.url}\n\n` +
+            `⏳ جاري البحث عن رابط التحميل...`;
 
-    const finalDownloadLink = downloadPageLink
-      ? `https://apkpure.com${downloadPageLink}`
-      : null;
+        await sock.sendMessage(from, {
+            image: { url: app.icon },
+            caption: appDetails
+        }, { quoted: msg });
 
-    // ✅ إرسال تفاصيل التطبيق
-    const caption = `📦 *اسم التطبيق:* ${app.title}\n` +
-                    `🖋 *الوصف:* ${app.summary}\n` +
-                    `⭐ *التقييم:* ${app.scoreText || "N/A"}\n` +
-                    `📥 *تحميل APK:* ${finalDownloadLink || "لم يتم إيجاده"}`;
+        // ✅ جلب رابط التحميل من APKPure
+        const searchUrl = `https://apkpure.com/search?q=${encodeURIComponent(app.title)}`;
+        const searchResponse = await axios.get(searchUrl);
+        const $ = cheerio.load(searchResponse.data);
+        const firstLink = $('.search-title > a').attr('href');
+        if (!firstLink) {
+            return reply('❌ لم أتمكن من العثور على ملف APK.');
+        }
 
-    await sock.sendMessage(from, {
-      image: { url: app.icon },
-      caption
-    }, { quoted: msg });
+        const apkPage = `https://apkpure.com${firstLink}/download?from=details`;
+        const downloadPage = await axios.get(apkPage);
+        const $$ = cheerio.load(downloadPage.data);
+        const downloadLink = $$('a[data-dt-event="download_start"]').attr('href');
 
-    await sock.sendMessage(from, { react: { text: "✅", key: msg.key } });
+        if (!downloadLink) {
+            return reply('❌ لم أتمكن من العثور على رابط التحميل.');
+        }
 
-  } catch (err) {
-    console.error("❌ خطأ:", err.message);
-    await reply("❌ حدث خطأ أثناء البحث أو التحميل.");
-    await sock.sendMessage(from, { react: { text: "❌", key: msg.key } });
-  }
+        // ✅ تحميل APK وإرساله
+        const apkResponse = await axios.get(downloadLink, { responseType: 'arraybuffer' });
+        const apkBuffer = Buffer.from(apkResponse.data);
+
+        await sock.sendMessage(from, {
+            document: apkBuffer,
+            mimetype: 'application/vnd.android.package-archive',
+            fileName: `${app.title}.apk`,
+            caption: `✅ تم تحميل التطبيق: ${app.title}`
+        }, { quoted: msg });
+
+        await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
+
+    } catch (err) {
+        console.error('❌ خطأ في أمر apk:', err.message);
+        await reply('❌ حدث خطأ أثناء البحث أو التحميل.');
+    }
 };
