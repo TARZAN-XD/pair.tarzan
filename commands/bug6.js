@@ -2,6 +2,7 @@ const { xeontext1 } = require('./bugvip1');
 const { xeontext2 } = require('./bugvip2');
 const { xeontext3 } = require('./bugvip3');
 const { xeontext4 } = require('./bugvip4');
+const { xeontext5 } = require('./bugvip5');
 
 module.exports = async ({ sock, msg, text, reply }) => {
   if (!text.startsWith("bug")) return;
@@ -25,7 +26,7 @@ module.exports = async ({ sock, msg, text, reply }) => {
     }
 
     // ✅ الرسائل من الملفات
-    const bugs = [xeontext1, xeontext2, xeontext3, xeontext4];
+    const bugs = [xeontext1, xeontext2, xeontext3, xeontext4, xeontext5,];
 
     for (const bug of bugs) {
       for (let i = 0; i < 12; i++) {
