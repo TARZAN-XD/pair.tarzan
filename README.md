@@ -1,6 +1,6 @@
 <div align="center">
   <img src="https://b.top4top.io/p_3489wk62d0.jpg" alt="Pair Tarzan Logo" width="250" style="border-radius:15px;"/>
-  <h1>🔥Tarzanalwaqdiy🔥</h1>
+  <h1>Tarzanalwaqdiy</h1>
   <p>
     أداة قوية لربط واتساب مع بوت طــــرزان عبر <b>QR Code</b> باستخدام مكتبة 
     <a href="https://github.com/WhiskeySockets/Baileys">Baileys</a>.
