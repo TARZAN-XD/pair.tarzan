@@ -21,7 +21,7 @@ app.use(express.static('public'));
 app.use(express.json());
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// ✅ تحميل الأوامر (كما هو)
+// ✅ تحميل الأوامر
 const commands = [];
 const commandsPath = path.join(__dirname, 'commands');
 fs.readdirSync(commandsPath).forEach(file => {
@@ -68,9 +68,8 @@ async function startSession(sessionId, res) {
     if (connection === 'open') {
       console.log(`✅ جلسة ${sessionId} متصلة`);
       const selfId = sock.user.id.split(':')[0] + "@s.whatsapp.net";
-      await sock.sendMessage(selfId, {
-        image: { url: 'https://b.top4top.io/p_3489wk62d0.jpg' },
-const caption = `✨ *مرحباً بك في بوت طرزان الواقدي* ✨
+
+      const caption = `✨ *مرحباً بك في بوت طرزان الواقدي* ✨
 
 ✅ *تم ربط الجلسة بنجاح!*  
 🔑 *معرف الجلسة:* \`${sessionId}\`
@@ -80,7 +79,12 @@ const caption = `✨ *مرحباً بك في بوت طرزان الواقدي* �
 • *tarzan* ⬅️ لعرض جميع الأوامر الجاهزة  
 ━━━━━━━━━━━━━━━  
 
-⚡ *استمتع بالتجربة الآن!*`;        footer: "🤖 طرزان الواقدي - بوت الذكاء الاصطناعي ⚔️",
+⚡ *استمتع بالتجربة الآن!*`;
+
+      await sock.sendMessage(selfId, {
+        image: { url: 'https://b.top4top.io/p_3489wk62d0.jpg' },
+        caption: caption,
+        footer: "🤖 طرزان الواقدي - بوت الذكاء الاصطناعي ⚔️",
         buttons: [
           { buttonId: "help", buttonText: { displayText: "📋 عرض الأوامر" }, type: 1 },
           { buttonId: "menu", buttonText: { displayText: "📦 قائمة الميزات" }, type: 1 }
@@ -90,7 +94,7 @@ const caption = `✨ *مرحباً بك في بوت طرزان الواقدي* �
     }
   });
 
-  // ✅ منع الحذف (كما هو)
+  // ✅ منع الحذف
   sock.ev.on('messages.update', async updates => {
     for (const { key, update } of updates) {
       if (update?.message === null && key?.remoteJid && !key.fromMe) {
@@ -114,7 +118,7 @@ const caption = `✨ *مرحباً بك في بوت طرزان الواقدي* �
     }
   });
 
-  // ✅ استقبال الأوامر (كما هو)
+  // ✅ استقبال الأوامر
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0];
     if (!msg?.message) return;
