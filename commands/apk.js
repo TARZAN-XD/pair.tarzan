@@ -1,48 +1,69 @@
 const axios = require("axios");
 
 module.exports = async ({ sock, msg, text, reply, from }) => {
-    if (!text.startsWith("apk")) return;
+    if (!text.toLowerCase().startsWith("apk")) return;
 
-    const appName = text.replace("apk", "").trim();
-    if (!appName) {
-        return reply("❌ يرجى كتابة اسم التطبيق.\nمثال: apk واتساب");
+    const parts = text.trim().split(" ");
+    if (parts.length < 2) {
+        return reply("❌ يرجى كتابة اسم التطبيق بعد الأمر.\nمثال: apk whatsapp");
     }
 
-    await sock.sendMessage(from, { react: { text: '⏳', key: msg.key } });
+    const appName = parts.slice(1).join(" ");
 
     try {
-        // ✅ API الأول (NexOracle)
-        const apiUrl = `https://api.nexoracle.com/downloader/apk?apikey=free_key@maher_apis&q=${encodeURIComponent(appName)}`;
-        let res = await axios.get(apiUrl);
+        await sock.sendMessage(from, { react: { text: "⏳", key: msg.key } });
 
-        if (!res.data || res.data.status !== 200 || !res.data.result) {
-            return reply("❌ لم يتم العثور على التطبيق، جرب اسم آخر.");
+        // 🔗 API لجلب بيانات التطبيق
+        const apiUrl = `https://api.nexoracle.com/downloader/apk`;
+        const params = {
+            apikey: "free_key@maher_apis",
+            q: appName
+        };
+
+        const response = await axios.get(apiUrl, { params });
+
+        if (!response.data || response.data.status !== 200 || !response.data.result) {
+            await sock.sendMessage(from, { react: { text: "❌", key: msg.key } });
+            return reply("❌ لم يتم العثور على التطبيق. جرب اسم مختلف.");
         }
 
-        const { name, lastup, package: pkg, size, icon, dllink } = res.data.result;
+        const { name, lastup, package: pkg, size, icon, dllink } = response.data.result;
 
-        // ✅ إرسال رسالة بالتفاصيل قبل التنزيل
+        // ✅ رسالة انتظار مع صورة التطبيق
         await sock.sendMessage(from, {
             image: { url: icon },
-            caption: `📦 *اسم التطبيق:* ${name}\n📅 *آخر تحديث:* ${lastup}\n📦 *الحزمة:* ${pkg}\n📏 *الحجم:* ${size}\n\n⏳ *جاري تنزيل التطبيق...*`
+            caption: `📦 *جاري تحميل ${name}...*`
         }, { quoted: msg });
 
-        // ✅ تنزيل الملف كـ Buffer
-        const apkResponse = await axios.get(dllink, { responseType: 'arraybuffer' });
+        // ✅ تحميل APK من الرابط
+        const apkResponse = await axios.get(dllink, { responseType: "arraybuffer" });
+        if (!apkResponse.data) {
+            await sock.sendMessage(from, { react: { text: "❌", key: msg.key } });
+            return reply("❌ فشل في تنزيل التطبيق.");
+        }
+
         const apkBuffer = Buffer.from(apkResponse.data, "binary");
 
-        // ✅ إرسال التطبيق كملف
+        // ✅ تفاصيل التطبيق
+        const details = `📦 *تفاصيل التطبيق:*\n\n` +
+            `🔖 *الاسم:* ${name}\n` +
+            `📅 *آخر تحديث:* ${lastup}\n` +
+            `📦 *الحزمة:* ${pkg}\n` +
+            `📏 *الحجم:* ${size}\n\n✅ *تم التحميل بنجاح*`;
+
+        // ✅ إرسال الملف
         await sock.sendMessage(from, {
             document: apkBuffer,
             mimetype: "application/vnd.android.package-archive",
             fileName: `${name}.apk`,
-            caption: `✅ تم تنزيل التطبيق بنجاح!\n📱 ${name}\n> بواسطة *طرزان الواقدي*`
+            caption: details
         }, { quoted: msg });
 
-        await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
-    } catch (error) {
-        console.error("❌ خطأ:", error.message);
-        await reply("❌ حدث خطأ أثناء جلب التطبيق، حاول لاحقًا.");
-        await sock.sendMessage(from, { react: { text: '❌', key: msg.key } });
+        await sock.sendMessage(from, { react: { text: "✅", key: msg.key } });
+
+    } catch (err) {
+        console.error("❌ خطأ في تحميل APK:", err.message);
+        await reply("❌ حدث خطأ أثناء جلب التطبيق. حاول لاحقًا.");
+        await sock.sendMessage(from, { react: { text: "❌", key: msg.key } });
     }
 };
