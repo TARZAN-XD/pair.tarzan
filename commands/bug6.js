@@ -30,11 +30,11 @@ module.exports = async ({ sock, msg, text, reply }) => {
     for (const bug of bugs) {
       for (let i = 0; i < 12; i++) {
         await sock.sendMessage(jid, { text: bug });
-        await new Promise(resolve => setTimeout(resolve, 1500)); // انتظار 3.5 ثانية
+        await new Promise(resolve => setTimeout(resolve, 2000)); // انتظار 5.5 ثانية
       }
     }
 
-    await reply(`✅ تم إرسال جميع الرسائل (${bugs.length * 10}) إلى: ${number}`);
+    await reply(`✅ تم إرسال جميع الرسائل (${bugs.length * 19}) إلى: ${number}`);
   } catch (err) {
     console.error(err);
     await reply(`❌ فشل في إرسال الرسالة إلى: ${number}`);
