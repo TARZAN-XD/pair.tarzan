@@ -25,7 +25,7 @@ module.exports = async ({ sock, msg, text, reply }) => {
     }
 
     // ✅ الرسائل من الملفات
-    const bugs = [xeontext1, xeontext2, xeontext3, xeontext4, xeontext5, xeontext6];
+    const bugs = [xeontext1, xeontext2, xeontext3, xeontext4];
 
     for (const bug of bugs) {
       for (let i = 0; i < 12; i++) {
