@@ -52,7 +52,6 @@ module.exports = async ({ sock, msg, text, reply, from }) => {
         let downloadLink = $$('a[data-dt-event="download_start"]').attr('href');
 
         if (!downloadLink) {
-            // جلب الرابط من الجافاسكربت إذا لم يكن في الأزرار
             const scriptContent = downloadPage.data.match(/https:\/\/download\.apkpure\.com\/b\/.*?"/);
             if (scriptContent) {
                 downloadLink = scriptContent[0].replace(/"/g, '');
@@ -63,16 +62,24 @@ module.exports = async ({ sock, msg, text, reply, from }) => {
             return reply('❌ لم أتمكن من العثور على رابط التحميل.');
         }
 
-        // ✅ تحميل APK
-        const apkResponse = await axios.get(downloadLink, { responseType: 'arraybuffer' });
-        const apkBuffer = Buffer.from(apkResponse.data);
+        // ✅ تحقق من الحجم قبل التنزيل
+        const headRes = await axios.head(downloadLink);
+        const fileSize = headRes.headers['content-length'] || 0;
+        const sizeMB = (fileSize / (1024 * 1024)).toFixed(2);
 
-        await sock.sendMessage(from, {
-            document: apkBuffer,
-            mimetype: 'application/vnd.android.package-archive',
-            fileName: `${app.title}.apk`,
-            caption: `✅ تم تحميل التطبيق: ${app.title}`
-        }, { quoted: msg });
+        if (sizeMB > 64) {
+            await reply(`⚠️ حجم الملف كبير (${sizeMB}MB). لا يمكن إرساله عبر واتساب.\n\n📥 رابط التحميل:\n${downloadLink}`);
+        } else {
+            const apkResponse = await axios.get(downloadLink, { responseType: 'arraybuffer' });
+            const apkBuffer = Buffer.from(apkResponse.data);
+
+            await sock.sendMessage(from, {
+                document: apkBuffer,
+                mimetype: 'application/vnd.android.package-archive',
+                fileName: `${app.title}.apk`,
+                caption: `✅ تم تحميل التطبيق: ${app.title}\nالحجم: ${sizeMB}MB`
+            }, { quoted: msg });
+        }
 
         await sock.sendMessage(from, { react: { text: '✅', key: msg.key } });
 
