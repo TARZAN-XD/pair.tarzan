@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://telegra.ph/file/6b5f35a7a379f1a9f8f92.png" alt="Pair Tarzan Logo" width="200"/>
+  <img src="[https://telegra.ph/file/6b5f35a7a379f1a9f8f92.png](https://b.top4top.io/p_3489wk62d0.jpg)" alt="Pair Tarzan Logo" width="200"/>
   <h1>🔥 Pair Tarzan Bot 🔥</h1>
   <p>
     أداة قوية لربط واتساب مع بوتات تيليجرام عبر <b>Pairing Code</b> باستخدام مكتبة 
