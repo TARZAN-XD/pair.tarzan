@@ -1,39 +1,40 @@
-const axios = require('axios');
+const { fetchJson, getBuffer } = require("../lib/functions");
+const { Sticker, StickerTypes } = require("wa-sticker-formatter");
 
-const getBuffer = async(url, options) => {
-	try {
-		options ? options : {};
-		var res = await axios({
-			method: 'get',
-			url,
-			headers: {
-				'DNT': 1,
-				'Upgrade-Insecure-Request': 1
-			},
-			...options,
-			responseType: 'arraybuffer'
-		});
-		return res.data;
-	} catch (e) {
-		console.log(e);
-	}
-};
+module.exports = async ({ sock, msg, text, reply }) => {
+    if (!text.toLowerCase().startsWith("emix")) return;
 
-const fetchJson = async(url, options) => {
+    const query = text.replace("emix", "").trim();
+    if (!query.includes(",")) {
+        return reply("❌ *الاستخدام الصحيح:*\n*emix 😂,🙂*");
+    }
+
+    const [emoji1, emoji2] = query.split(",").map(e => e.trim());
+
     try {
-        options ? options : {};
-        const res = await axios({
-            method: 'GET',
-            url: url,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36'
-            },
-            ...options
+        await reply("⏳ جاري إنشاء الملصق...");
+        const apiUrl = `https://levanter.onrender.com/emix?q=${encodeURIComponent(emoji1)},${encodeURIComponent(emoji2)}`;
+        const data = await fetchJson(apiUrl);
+
+        if (!data.result) {
+            return reply("❌ لم أستطع إنشاء الإيموجي المدمج. جرب رموز أخرى.");
+        }
+
+        const buffer = await getBuffer(data.result);
+
+        const sticker = new Sticker(buffer, {
+            pack: "Emoji Mix",
+            author: "طرزان الواقدي",
+            type: StickerTypes.FULL,
+            quality: 75,
+            background: "transparent"
         });
-        return res.data;
+
+        const stickerBuffer = await sticker.toBuffer();
+        await sock.sendMessage(msg.key.remoteJid, { sticker: stickerBuffer }, { quoted: msg });
+
     } catch (err) {
-        return err;
+        console.error(err);
+        reply("❌ حدث خطأ أثناء إنشاء الملصق.");
     }
 };
-
-module.exports = { getBuffer, fetchJson };
