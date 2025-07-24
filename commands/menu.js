@@ -1,5 +1,5 @@
 module.exports = async ({ text, sock, from }) => {
-  if (text.toLowerCase() === 'menu') {
+  if (text.toLowerCase() === 'tarzan') {
     const menuMessage = `
 ┏━━━━━━━━━━━━━━━━━━━┓
 ✨ *قائمة أوامر بوت طرزان الواقدي* ✨
