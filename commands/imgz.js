@@ -1,6 +1,7 @@
 const axios = require("axios");
 
-async function generateImage(sock, m, prompt, reply, apiUrl) {
+// ✅ دالة لإنشاء الصورة
+async function generateImage(sock, from, prompt, reply, apiUrl, quotedMsg) {
   if (!prompt) return reply("❌ الرجاء إدخال وصف للصورة.");
 
   try {
@@ -11,11 +12,11 @@ async function generateImage(sock, m, prompt, reply, apiUrl) {
 
     const imageBuffer = Buffer.from(response.data, "binary");
 
-    await sock.sendMessage(m.chat, {
+    await sock.sendMessage(from, {
       image: imageBuffer,
       caption: `✨ *تم إنشاء الصورة بنجاح!*  
 🔍 *الوصف:* ${prompt}`
-    }, { quoted: m });
+    }, { quoted: quotedMsg });
 
   } catch (error) {
     console.error("❌ خطأ:", error);
@@ -23,60 +24,62 @@ async function generateImage(sock, m, prompt, reply, apiUrl) {
   }
 }
 
-module.exports = async ({ sock, m, text, reply }) => {
+module.exports = async ({ sock, msg, text, reply, from }) => {
   const args = text.trim().split(/\s+/);
   const command = args[0].toLowerCase();
   const prompt = args.slice(1).join(' ');
 
+  // ✅ عند كتابة "تخيل" يتم عرض الرسالة الفخمة
   if (command === "تخيل") {
     const helpMsg = `
-╔════◇◆◇════╗
-   ✨ *أوامر توليد الصور بالذكاء الاصطناعي* ✨
-╚════◇◆◇════╝
+✨ *مرحباً بك في عالم الإبداع مع طرزان الواقدي* ✨
 
-🖼️ *يمكنك إنشاء صور احترافية بسهولة عبر هذه الأوامر:*
+✅ *قسم توليد الصور بالذكاء الاصطناعي جاهز لك!*  
 
-━━━━━━━━━━━━━━━━━━━━━━━
-🔹 1️⃣ *fluxai*  
-✔ مولد الصور بتقنية *Flux AI*  
-💡 مثال: \`fluxai غروب الشمس في الصحراء\`
+🧠 *الأوامر المتاحة:*  
+━━━━━━━━━━━━━━━  
+🔹 *fluxai*  ➤ صور عالية الدقة بتقنية Flux  
+🔹 *stablediffusion*  ➤ تصميمات إبداعية بخاصية Stable Diffusion  
+🔹 *stabilityai*  ➤ فنون مذهلة عبر Stability AI  
+━━━━━━━━━━━━━━━  
 
-🔹 2️⃣ *stablediffusion*  
-✔ مولد الصور بخاصية *Stable Diffusion*  
-💡 مثال: \`stablediffusion منظر طبيعي خيالي\`
+📌 *كيفية الاستخدام:*  
+اكتب الأمر متبوعًا بالوصف، مثال:  
+\`fluxai منظر خيالي لغروب الشمس في الصحراء\`
 
-🔹 3️⃣ *stabilityai*  
-✔ مولد الصور عبر *Stability AI*  
-💡 مثال: \`stabilityai قطة تلعب بالكرة\`
-━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ *نصيحة:* كلما كان الوصف دقيقًا، زادت روعة الصورة!  
 
-⚡ *اكتب الأمر متبوعًا بوصف دقيق لتحصل على أفضل النتائج!*
-
-💡 *نصيحة:* كلما كان الوصف مفصلًا، كانت الصورة أجمل وأقرب لما تريد.
-
-━━━━━━━━━━━━━━━━━━━━━━━
-🔥 *مثال سريع:*  
-\`fluxai فتاة في فضاء خارجي تحمل نجومًا\`
-
-🤖 *طرزان الواقدي – الأفضل دائمًا*
+⚡ *ابدأ الآن ودع خيالك يبدع!*  
 `.trim();
 
-    return reply(helpMsg);
+    // ✅ إرسال الرسالة مع أزرار تفاعلية
+    await sock.sendMessage(from, {
+      text: helpMsg,
+      footer: "🤖 طرزان الواقدي - الإبداع في متناول يدك",
+      buttons: [
+        { buttonId: "fluxai مثال", buttonText: { displayText: "🚀 تجربة Flux" }, type: 1 },
+        { buttonId: "stablediffusion مثال", buttonText: { displayText: "🎨 تجربة Stable" }, type: 1 },
+        { buttonId: "stabilityai مثال", buttonText: { displayText: "✨ تجربة Stability" }, type: 1 }
+      ],
+      headerType: 1
+    }, { quoted: msg });
+
+    return;
   }
 
-  // تنفيذ أوامر التوليد
+  // ✅ تنفيذ أوامر التوليد
   if (["fluxai", "flux", "imagine"].includes(command)) {
     const apiUrl = `https://api.siputzx.my.id/api/ai/flux?prompt=${encodeURIComponent(prompt)}`;
-    return generateImage(sock, m, prompt, reply, apiUrl);
+    return generateImage(sock, from, prompt, reply, apiUrl, msg);
   }
 
   if (["stablediffusion", "sdiffusion", "imagine2"].includes(command)) {
     const apiUrl = `https://api.siputzx.my.id/api/ai/stable-diffusion?prompt=${encodeURIComponent(prompt)}`;
-    return generateImage(sock, m, prompt, reply, apiUrl);
+    return generateImage(sock, from, prompt, reply, apiUrl, msg);
   }
 
   if (["stabilityai", "stability", "imagine3"].includes(command)) {
     const apiUrl = `https://api.siputzx.my.id/api/ai/stabilityai?prompt=${encodeURIComponent(prompt)}`;
-    return generateImage(sock, m, prompt, reply, apiUrl);
+    return generateImage(sock, from, prompt, reply, apiUrl, msg);
   }
 };
