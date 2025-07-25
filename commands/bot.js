@@ -1,93 +1,56 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-const fs = require("fs");
-const path = require("path");
+const axios = require('axios');
 
-const GEMINI_API_KEY = "AIzaSyAmQKcLhUiobbwQTVn0W-Fx5XcrQGJEBdw";
-
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const textModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-const visionModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro-vision" });
-
+// تخزين الجلسات النشطة لكل مستخدم
 const userSessions = {};
 
-module.exports = async ({ sock, msg, text, reply, from }) => {
-  const command = text.trim();
+module.exports = {
+  name: "talk",
+  alias: ["openai", "chatgpt", "gpt3"],
+  category: "ai",
+  desc: "تفعيل وضع المحادثة مع الذكاء الاصطناعي",
+  async run({ sock, m, text, reply }) {
+    const command = text.trim();
 
-  // ✅ أمر تفعيل المحادثة
-  if (command === "تكلم يا طرزان") {
-    userSessions[from] = { active: true, history: [] };
+    // ✅ تفعيل المحادثة
+    if (command === "تحدث معي يا طرزان") {
+      userSessions[m.sender] = true;
+      return reply(
+        `✨ *مرحباً بك في وضع المحادثة الذكية!* ✨\n\n` +
+        `✅ *تم تفعيل المحادثة مع طرزان.*\n` +
+        `💬 يمكنك الآن التحدث بحرية، وسأرد على كل رسائلك.\n\n` +
+        `🛑 *لإيقاف المحادثة أرسل:* توقف\n` +
+        `━━━━━━━━━━━━━━━\n` +
+        `⚡ *استمتع بالتجربة!*`
+      );
+    }
 
-    return reply(
-      `✨ *مرحباً بك في وضع المحادثة مع طرزان الواقدي!* ✨\n\n` +
-      `✅ *تم تفعيل وضع الذكاء الاصطناعي (Gemini)*\n` +
-      `💬 يمكنك الآن التحدث معي بحرية أو تحليل الصور.\n\n` +
-      `🖼 *لتحليل صورة:* أرسل الصورة مع الوصف.\n` +
-      `🛑 *لإيقاف المحادثة:* أرسل \`توقف\`\n` +
-      `━━━━━━━━━━━━━━━\n` +
-      `⚡ *استمتع بتجربة طرزان الذكية الآن!*`
-    );
-  }
+    // ✅ إيقاف المحادثة
+    if (command === "توقف") {
+      delete userSessions[m.sender];
+      return reply("✅ *تم إيقاف وضع المحادثة بنجاح.*");
+    }
 
-  // ✅ أمر إيقاف المحادثة
-  if (command === "توقف") {
-    delete userSessions[from];
-    return reply("✅ *تم إيقاف وضع المحادثة بنجاح.*");
-  }
-
-  // ✅ إذا الوضع مفعّل
-  if (userSessions[from]?.active) {
-    const quotedImg = msg.message?.imageMessage || msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
-
-    if (quotedImg) {
+    // ✅ إذا المحادثة مفعلة
+    if (userSessions[m.sender]) {
       try {
-        await reply("⏳ *جارٍ تحليل الصورة باستخدام Gemini...*");
+        if (!text) return; // تجاهل الرسائل الفارغة
+        await sock.sendMessage(m.chat, { react: { text: "⏳", key: m.key } });
 
-        // ✅ تحميل الصورة
-        const buffer = await sock.downloadMediaMessage(msg);
-        const tempPath = path.join(__dirname, `temp_${Date.now()}.jpg`);
-        fs.writeFileSync(tempPath, buffer);
+        const apiUrl = `https://vapis.my.id/api/openai?q=${encodeURIComponent(text)}`;
+        const { data } = await axios.get(apiUrl);
 
-        const imageData = fs.readFileSync(tempPath).toString("base64");
-        fs.unlinkSync(tempPath); // حذف الصورة المؤقتة
+        if (!data || !data.result) {
+          await sock.sendMessage(m.chat, { react: { text: "❌", key: m.key } });
+          return reply("❌ لم يتمكن OpenAI من الرد.");
+        }
 
-        // ✅ تحليل الصورة
-        const prompt = text.replace(/حلل|تحليل|image|picture/gi, "").trim() || "حلل الصورة بالتفصيل";
-        const result = await visionModel.generateContent([
-          { text: prompt },
-          { inlineData: { data: imageData, mimeType: "image/jpeg" } }
-        ]);
+        await reply(`🤖 *طرزان يرد:*\n\n${data.result}`);
+        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
 
-        const analysis = result.response.text();
-
-        await sock.sendMessage(from, {
-          text: `🖼 *تحليل الصورة:*\n\n${analysis}`
-        }, { quoted: msg });
-
-      } catch (error) {
-        console.error("Gemini Vision Error:", error.message);
-        reply("❌ حدث خطأ أثناء تحليل الصورة. حاول لاحقًا.");
-      }
-
-    } else {
-      // ✅ محادثة نصية عادية
-      try {
-        await sock.sendMessage(from, { react: { text: "⌛", key: msg.key } });
-
-        userSessions[from].history.push({ role: "user", parts: [{ text }] });
-
-        const chat = textModel.startChat({ history: userSessions[from].history });
-        const result = await chat.sendMessage(text);
-        const aiReply = result.response.text();
-
-        userSessions[from].history.push({ role: "model", parts: [{ text: aiReply }] });
-
-        await sock.sendMessage(from, {
-          text: `🤖 *طرزان يرد:*\n\n${aiReply}`
-        }, { quoted: msg });
-
-      } catch (error) {
-        console.error("Gemini Error:", error.message);
-        reply("❌ حدث خطأ أثناء الاتصال بـ Gemini. حاول لاحقًا.");
+      } catch (err) {
+        console.error("Error in AI Chat:", err.message);
+        await sock.sendMessage(m.chat, { react: { text: "❌", key: m.key } });
+        reply("❌ حدث خطأ أثناء الاتصال بالذكاء الاصطناعي.");
       }
     }
   }
