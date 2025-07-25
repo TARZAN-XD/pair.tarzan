@@ -1,60 +1,60 @@
 const axios = require("axios");
-const fs = require("fs");
-const FormData = require("form-data");
 
-const OPENAI_API_KEY = "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"; //  OpenAI هنا
+// ✅ المفتاح الذي طلبت تضمينه
+const OPENAI_API_KEY = "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";
+
+// ✅ لتخزين حالة المحادثة لكل مستخدم
+const userSessions = {};
 
 module.exports = async ({ sock, msg, text, reply, from }) => {
-  const command = text.trim().split(/\s+/)[0].toLowerCase();
+  const command = text.trim();
 
-  if (command === "عدل") {
-    const quotedMsg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-    const quotedImage = quotedMsg?.imageMessage;
+  // ✅ أمر تشغيل الوضع
+  if (command === "تكلم يا طرزان") {
+    userSessions[from] = { active: true, history: [] }; // إضافة التاريخ لاحقًا
+    return reply("🤖 *تم تفعيل وضع المحادثة مع الذكاء الاصطناعي.*\nاكتب رسالتك الآن وسأجيبك بكل ذكاء!\n\n🛑 لإيقاف الوضع، أرسل: *توقف*");
+  }
 
-    if (!quotedImage) {
-      return reply("❌ يجب أن ترد على صورة مع كتابة الوصف للتعديل.\n\nمثال:\nرد على صورة واكتب: *عدل اجعلها أنمي بخلفية نيون*");
-    }
+  // ✅ أمر إيقاف الوضع
+  if (command === "توقف") {
+    delete userSessions[from];
+    return reply("✅ *تم إيقاف وضع المحادثة.*\nأهلاً بك في أي وقت يا صديقي!");
+  }
 
-    const prompt = text.replace("عدل", "").trim();
-    if (!prompt) return reply("❌ يرجى كتابة وصف التعديل بعد الأمر.\nمثال: *عدل اجعلها أنمي بخلفية نيون*");
-
-    await reply("> ⏳ *جارٍ معالجة الصورة وتطبيق التصميم المطلوب باستخدام الذكاء الاصطناعي...*");
-
+  // ✅ إذا كان الوضع مفعّل
+  if (userSessions[from]?.active) {
     try {
-      // ✅ تحميل الصورة الأصلية
-      const buffer = await sock.downloadMediaMessage({ message: quotedMsg });
-      const tempFile = `./temp_${Date.now()}.png`;
-      fs.writeFileSync(tempFile, buffer);
+      await sock.sendMessage(from, { react: { text: "⌛", key: msg.key } });
 
-      // ✅ تجهيز البيانات للإرسال إلى OpenAI
-      const formData = new FormData();
-      formData.append("image", fs.createReadStream(tempFile));
-      formData.append("model", "dall-e-2"); // أو dall-e-3 إذا مدعوم
-      formData.append("prompt", prompt);
-      formData.append("size", "1024x1024");
+      // إضافة الرسالة للسياق
+      userSessions[from].history.push({ role: "user", content: text });
 
-      const response = await axios.post("https://api.openai.com/v1/images/edits", formData, {
+      const response = await axios.post("https://api.openai.com/v1/chat/completions", {
+        model: "gpt-4o-mini", // يمكنك تغييره إلى gpt-4o
+        messages: [
+          { role: "system", content: "أنت طرزان الواقدي، مساعد ذكي ومرح ومبدع." },
+          ...userSessions[from].history
+        ],
+        temperature: 0.8
+      }, {
         headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-          ...formData.getHeaders()
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json"
         }
       });
 
-      fs.unlinkSync(tempFile); // حذف الصورة المؤقتة
+      const aiReply = response.data.choices[0].message.content;
 
-      if (!response.data || !response.data.data || response.data.data.length === 0) {
-        return reply("❌ فشل تعديل الصورة. حاول مرة أخرى.");
-      }
+      // حفظ رد الذكاء الاصطناعي في السياق
+      userSessions[from].history.push({ role: "assistant", content: aiReply });
 
-      const imageUrl = response.data.data[0].url;
       await sock.sendMessage(from, {
-        image: { url: imageUrl },
-        caption: `✅ *تم تعديل الصورة بنجاح!*\n🎨 *الوصف:* ${prompt}`
+        text: `💬 *طرزان يرد عليك:*\n\n${aiReply}`
       }, { quoted: msg });
 
     } catch (error) {
-      console.error("❌ خطأ:", error.response?.data || error.message);
-      reply("❌ حدث خطأ أثناء تعديل الصورة. تحقق من إعداداتك أو حاول لاحقًا.");
+      console.error("خطأ في المحادثة:", error.response?.data || error.message);
+      reply("❌ حدث خطأ أثناء الاتصال بالذكاء الاصطناعي. حاول لاحقًا.");
     }
   }
 };
