@@ -1,57 +1,54 @@
 const axios = require('axios');
 
-// تخزين الجلسات النشطة لكل مستخدم
-const userSessions = {};
+const userSessions = {}; // لتخزين الجلسات
 
-module.exports = {
-  name: "talk",
-  alias: ["openai", "chatgpt", "gpt3"],
-  category: "ai",
-  desc: "تفعيل وضع المحادثة مع الذكاء الاصطناعي",
-  async run({ sock, m, text, reply }) {
-    const command = text.trim();
+module.exports = async (sock, msg) => {
+  try {
+    const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
+    const from = msg.key.remoteJid;
+    const sender = msg.key.participant || from;
+
+    if (!text) return;
 
     // ✅ تفعيل المحادثة
-    if (command === "تحدث معي يا طرزان") {
-      userSessions[m.sender] = true;
-      return reply(
-        `✨ *مرحباً بك في وضع المحادثة الذكية!* ✨\n\n` +
-        `✅ *تم تفعيل المحادثة مع طرزان.*\n` +
-        `💬 يمكنك الآن التحدث بحرية، وسأرد على كل رسائلك.\n\n` +
-        `🛑 *لإيقاف المحادثة أرسل:* توقف\n` +
-        `━━━━━━━━━━━━━━━\n` +
-        `⚡ *استمتع بالتجربة!*`
-      );
+    if (text.trim() === "تحدث معي يا طرزان") {
+      userSessions[sender] = true;
+      return await sock.sendMessage(from, {
+        text: `✨ *مرحباً بك في وضع المحادثة الذكية!* ✨\n\n` +
+              `✅ *تم تفعيل المحادثة مع طرزان.*\n` +
+              `💬 يمكنك الآن التحدث بحرية وسأرد على كل رسائلك.\n\n` +
+              `🛑 *لإيقاف المحادثة أرسل:* توقف\n` +
+              `━━━━━━━━━━━━━━━\n` +
+              `⚡ *استمتع بالتجربة!*`
+      }, { quoted: msg });
     }
 
     // ✅ إيقاف المحادثة
-    if (command === "توقف") {
-      delete userSessions[m.sender];
-      return reply("✅ *تم إيقاف وضع المحادثة بنجاح.*");
+    if (text.trim() === "توقف") {
+      delete userSessions[sender];
+      return await sock.sendMessage(from, { text: "✅ *تم إيقاف وضع المحادثة بنجاح.*" }, { quoted: msg });
     }
 
     // ✅ إذا المحادثة مفعلة
-    if (userSessions[m.sender]) {
-      try {
-        if (!text) return; // تجاهل الرسائل الفارغة
-        await sock.sendMessage(m.chat, { react: { text: "⏳", key: m.key } });
+    if (userSessions[sender]) {
+      await sock.sendMessage(from, { react: { text: "⌛", key: msg.key } });
 
-        const apiUrl = `https://vapis.my.id/api/openai?q=${encodeURIComponent(text)}`;
-        const { data } = await axios.get(apiUrl);
+      const apiUrl = `https://vapis.my.id/api/openai?q=${encodeURIComponent(text)}`;
+      const { data } = await axios.get(apiUrl);
 
-        if (!data || !data.result) {
-          await sock.sendMessage(m.chat, { react: { text: "❌", key: m.key } });
-          return reply("❌ لم يتمكن OpenAI من الرد.");
-        }
-
-        await reply(`🤖 *طرزان يرد:*\n\n${data.result}`);
-        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
-
-      } catch (err) {
-        console.error("Error in AI Chat:", err.message);
-        await sock.sendMessage(m.chat, { react: { text: "❌", key: m.key } });
-        reply("❌ حدث خطأ أثناء الاتصال بالذكاء الاصطناعي.");
+      if (!data || !data.result) {
+        await sock.sendMessage(from, { react: { text: "❌", key: msg.key } });
+        return await sock.sendMessage(from, { text: "❌ لم أتمكن من الرد حالياً." }, { quoted: msg });
       }
+
+      await sock.sendMessage(from, {
+        text: `🤖 *طرزان يرد:*\n\n${data.result}`
+      }, { quoted: msg });
+
+      await sock.sendMessage(from, { react: { text: "✅", key: msg.key } });
     }
+
+  } catch (error) {
+    console.error("Error:", error.message);
   }
 };
