@@ -16,7 +16,7 @@ const PASSWORD = 'tarzanbot';
 const sessions = {};
 const msgStore = new Map();
 
-// ✅ واجهة المستخدم
+// ✅ تحميل الواجهة
 app.use(express.static('public'));
 app.use(express.json());
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
@@ -31,7 +31,7 @@ fs.readdirSync(commandsPath).forEach(file => {
   }
 });
 
-// ✅ دالة تشغيل الجلسة
+// ✅ تشغيل جلسة جديدة
 async function startSession(sessionId, res) {
   const sessionPath = path.join(__dirname, 'sessions', sessionId);
   fs.mkdirSync(sessionPath, { recursive: true });
@@ -47,9 +47,9 @@ async function startSession(sessionId, res) {
   });
 
   sessions[sessionId] = sock;
-
   sock.ev.on('creds.update', saveCreds);
 
+  // ✅ متابعة حالة الاتصال
   sock.ev.on('connection.update', async (update) => {
     const { connection, qr, lastDisconnect } = update;
 
@@ -67,19 +67,17 @@ async function startSession(sessionId, res) {
 
     if (connection === 'open') {
       console.log(`✅ جلسة ${sessionId} متصلة`);
+
       const selfId = sock.user.id.split(':')[0] + "@s.whatsapp.net";
 
       const caption = `✨ *مرحباً بك في بوت طرزان الواقدي* ✨
 
-✅ *تم ربط الجلسة بنجاح!*  
-🔑 *معرف الجلسة:* \`${sessionId}\`
+✅ تم ربط الرقم بنجاح.
 
-🧠 *أوامر مقترحة:*  
-━━━━━━━━━━━━━━━  
-• *tarzan* ⬅️ لعرض جميع الأوامر الجاهزة  
-━━━━━━━━━━━━━━━  
+🧠 *لإظهار قائمة الأوامر:*  
+• *tarzan* أرسل
 
-⚡ *استمتع بالتجربة الآن!*`;
+⚡ استمتع بالتجربة!`;
 
       await sock.sendMessage(selfId, {
         image: { url: 'https://b.top4top.io/p_3489wk62d0.jpg' },
@@ -118,7 +116,7 @@ async function startSession(sessionId, res) {
     }
   });
 
-  // ✅ استقبال الأوامر
+  // ✅ استقبال الرسائل وتنفيذ الأوامر
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0];
     if (!msg?.message) return;
@@ -153,6 +151,8 @@ async function startSession(sessionId, res) {
       }
     }
   });
+
+  return sock;
 }
 
 // ✅ API Endpoints
@@ -161,6 +161,23 @@ app.post('/create-session', (req, res) => {
   if (!sessionId) return res.json({ error: 'أدخل اسم الجلسة' });
   if (sessions[sessionId]) return res.json({ message: 'الجلسة موجودة مسبقاً' });
   startSession(sessionId, res);
+});
+
+// ✅ طلب رمز الاقتران (Pairing Code)
+app.post('/pair', async (req, res) => {
+  const { sessionId, number } = req.body;
+  if (!sessionId || !number) return res.json({ error: 'أدخل اسم الجلسة والرقم' });
+
+  const sock = sessions[sessionId];
+  if (!sock) return res.json({ error: 'الجلسة غير موجودة أو لم يتم تهيئتها' });
+
+  try {
+    const code = await sock.requestPairingCode(number);
+    res.json({ pairingCode: code });
+  } catch (err) {
+    console.error('❌ خطأ في طلب رمز الاقتران:', err.message);
+    res.json({ error: 'فشل في توليد رمز الاقتران' });
+  }
 });
 
 app.get('/sessions', (req, res) => {
